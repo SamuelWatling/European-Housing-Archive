@@ -247,6 +247,33 @@ before they are republished.
 
 ---
 
+## 9a. Figure 9's price and wage data — found 10 September 2026
+
+Both inputs to Figure 9 exist, under different names, in
+`Dropbox\Works in Progress\Data`:
+
+| `Domestic Britain Code.R` wants | actually on disk |
+|---|---|
+| `UK_House_Price_Since_1952.csv` | `UK_house_price_since_1952.xlsx` — Nationwide UK HPI, quarterly from 1952 Q4, All / New / Modern / Older houses, index + price + annual change |
+| `Wage Price Data.csv` | `Quarterly Index.csv` — the Bank of England "Q1. Quarterly Headline Series" sheet, exported. Year in column 1, quarter in column 2, then a Wages and Prices block containing the spliced CPI and the **spliced Average Weekly Earnings series, 1919-2015** |
+
+**The identification is certain, not a guess.** `Domestic Britain Code.R` lines 385-397 divide
+`CPI Index` by **6.57** and `Earnings` by **0.925**; the 1960 Q1 row of `Quarterly Index.csv` reads
+`... 6.57 ... 9.25 ...` in exactly those columns. They are 1960 Q1 rebasings, which is what the
+chart's "Log of Real 1960 Values = 1" axis means.
+
+The same folder also holds **`PriceWageGraph.png`**, the raw ggplot output behind Figure 9 --
+"English House Prices and Wages at 1975 Prices", real house prices in red against real wages in
+blue, both indexed to 1960 -- and `BadPriceWageGraph.png`, presumably an earlier attempt. So that
+folder is where the Figure 9 work was actually done.
+
+`a-millennium-of-macroeconomic-data-for-the-uk.xlsx` (the full BoE dataset, 109 sheets) is there
+too, so the quarterly export can be regenerated if `Quarterly Index.csv` is ever lost.
+
+**Consequence:** Figure 9 is reproducible. Note the source paths are outside this repo and outside
+`Processed European Data` -- a fourth data location for this project.
+
+
 ## 10. Hazards
 
 1. **`Dropbox\Eurpean` (typo) is a diverged duplicate.** Of four files compared,
@@ -287,7 +314,7 @@ Not reproducible from what survives:
 |---|---|
 | Figure 1, Tables 5-6 | historic E&W data — **found**, see §9 |
 | Figure 6 (residential investment) | the capital formation files — partly present |
-| Figure 9 (house prices vs wages) | `UK_House_Price_Since_1952.csv`, `Wage Price Data.csv` — both gone |
+| Figure 9 (house prices vs wages) | **both found 10 Sep 2026** — §9a |
 | Table 1 (dwelling sizes) | the 1950s rooms data — gone |
 | Table 3 tenure split | the technical annex — §7 |
 
@@ -317,7 +344,10 @@ Also missing but promised by the README: a **methodology** document.
    report.
 3. **Add Figure 1 and Tables 5-6** to `Summary Replication.R` from the historic E&W data (§9), and
    pin down the 1940s/1950s/1970s discrepancies first.
-4. **Resolve `Dropbox\Eurpean` against `Processed European Data`** (§10.1) and delete the loser.
-5. Install `ggpattern` if Figure 10 needs to match the published styling.
-6. Consider whether `Project R Code/` should be marked read-only or moved to a `docs/` subfolder,
+4. **Add Figure 9** from the price and wage data (§9a). The transform is fully specified in
+   `Domestic Britain Code.R` lines 376-400 and both inputs are on disk, so this is the most
+   straightforward of the remaining figures.
+5. **Resolve `Dropbox\Eurpean` against `Processed European Data`** (§10.1) and delete the loser.
+6. Install `ggpattern` if Figure 10 needs to match the published styling.
+7. Consider whether `Project R Code/` should be marked read-only or moved to a `docs/` subfolder,
    so it stops looking like code that could be run.
