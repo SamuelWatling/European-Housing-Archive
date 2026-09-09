@@ -34,9 +34,16 @@ provenance.
 | The report PDF | `Dropbox\Processed European Data\The-housebuilding-crisis-February-2023.pdf` |
 | Historic E&W source workbooks | `C:\Users\samue\Documents\Historical English Statistics` — §9 |
 | Duplicate data folder, **diverged** | `Dropbox\Eurpean` (note the typo) — §10 |
+| The technical annex | `Processed European Data\Methodology-...pdf` — §9c |
 | Related but separate project | `Dropbox\English Housing Article` — has its own data, some of it better |
 | Stray copy of the counterfactual | `Dropbox\European Replication Project` — byte-identical to the repo's |
 | Graph output from 2022 | `Dropbox\European Graphs` |
+
+**Consolidated 10 September 2026.** Everything needed now lives in `Processed European Data`:
+the historic England & Wales files, the Nationwide house price workbook, the Bank of England
+quarterly series and full millennium dataset, the Irish housing statistics, and the methodology
+annex. They were **copied, not moved** — `Works in Progress`, `English Housing Article` and
+`Historical English Statistics` are other projects and still need their own copies.
 
 Data is readable — these folders are local, not Dropbox online-only placeholders. That is worth
 checking after any Smart Sync change, because a placeholder read fails with `Input/output error`
@@ -274,6 +281,74 @@ too, so the quarterly export can be regenerated if `Quarterly Index.csv` is ever
 `Processed European Data` -- a fourth data location for this project.
 
 
+## 9b. Capital formation, and Figure 6 — 10 September 2026
+
+**The capital formation data is now a second sheet in `Replication Data full.xlsx`**, named
+`Capital Formation`: 941 rows, 33 countries, 1950-1988. The original
+`Replication Data full` sheet is untouched — still 1,174 x 19 — so nothing built on it changes.
+A backup of the pre-change workbook is at `Replication Data full.xlsx.backup-20260910`.
+
+Assembled from `Complete West Capital Formation.csv` (23 countries) and
+`Eastern European Capital Formation.csv` (10), which come from the **UN Annual Bulletin table 28**;
+the raw OCR scan is `InvestScan.xlsx`. Seven series, and the `Out.of` column is what distinguishes
+them — three are shares of GDP, two of total GFCF, two of construction GFCF:
+
+| Item | series |
+|---|---|
+| A | GFCF total (% GDP) |
+| B | GFCF construction (% GDP) |
+| C | **GFCF residential (% GDP)** — this is Figure 6 |
+| D | Construction (% of total GFCF) |
+| E | Residential (% of total GFCF) |
+| F | Residential (% of construction GFCF) |
+| G | Non-residential (% of construction GFCF) |
+
+Items `Y` and `Z` exist with one row each and no description; dropped.
+
+### OCR decimal-point errors
+
+The source has **decimal points in the wrong place** — Austria 1968 reads 57.4 for 5.74, Portugal
+1982 reads 909 for 9.09. Confirmed by Sam, 10 Sep 2026. Repaired by dividing by 10 until the value
+is plausible: **11 corrections, all in item C.** Same class of damage, and the same repair shape, as
+`recover_thousands()` in the English housing build.
+
+**A single threshold across items would have destroyed good data**, and my first attempt did exactly
+that: total gross fixed capital formation really is 20-40% of GDP and a share of GFCF really is
+50-60%, so a `> 15` ceiling flagged hundreds of correct values as broken. Ceilings are now per item,
+and **repair is applied to item C only** — the one series where the error is confirmed. The other
+six are **flagged, not altered**: 49 values exceed their ceiling, including Denmark 1957 and Germany
+1963 reading 174 and 232 for total GFCF, which are plainly the same fault. They are left alone
+because nobody has verified them.
+
+### Figure 6
+
+Reproduced in `Summary Replication.R` from the new sheet: residential GFCF as a share of GDP,
+averaged 1955-1979. Coverage is uneven and the report says so in its own footnote — Switzerland
+stops in 1969, Austria has ten years. The published rank order comes out right, Switzerland highest
+and the UK lowest at 3.28% against 6.30%, and the script asserts both ends. The middle is within
+reading error of a bar chart and the report publishes no numeric table for it.
+
+---
+
+## 9c. The technical annex — found 10 September 2026
+
+`Methodology-The-housebuilding-crisis-February-2023.pdf`, 19 pages, now in
+`Processed European Data`. This is the annex the report keeps pointing at, and **it contains both
+of the things this archive could not otherwise explain.**
+
+**It resolves §7.** The counterfactual's population adjustment creates a discrepancy between the
+total net change in stock and the sum of gross building and demolitions, which compounds into
+millions of homes over 1955-2015. The annex says the adjustment is applied so that *"these
+adjustments occur in the same tenure ratio as the total tenure ratio of the net additions to the
+housing stock"*. **That is the step `Counterfactual Replication.R` is missing** — which is exactly
+why its totals match published Table 3 and its private/public split does not.
+
+It also has an **Interpolation** section, which should independently document §6.
+
+The equations are images in the PDF and do not extract as text, so reproducing the tenure step means
+reading those pages as pages. Not yet done.
+
+
 ## 10. Hazards
 
 1. **`Dropbox\Eurpean` (typo) is a diverged duplicate.** Of four files compared,
@@ -313,9 +388,9 @@ Not reproducible from what survives:
 | | needs |
 |---|---|
 | Figure 1, Tables 5-6 | historic E&W data — **found**, see §9 |
-| Figure 6 (residential investment) | the capital formation files — partly present |
+| Figure 6 (residential investment) | **reproduced 10 Sep 2026** — §9b |
 | Figure 9 (house prices vs wages) | **both found 10 Sep 2026** — §9a |
-| Table 1 (dwelling sizes) | the 1950s rooms data — gone |
+| Table 1 (dwelling sizes) | **not European data at all.** Taken from a book (Sam, 10 Sep 2026), so there is nothing here to replicate and nothing missing |
 | Table 3 tenure split | the technical annex — §7 |
 
 Also missing but promised by the README: a **methodology** document.
@@ -339,9 +414,10 @@ Also missing but promised by the README: a **methodology** document.
 
 1. **Commit `Project R Code/`** (§10.6). It is untracked, unique, and the only documentation of
    the method that survives. Cheapest and highest-value action here.
-2. **Resolve the Table 3 tenure split** (§7) — find the technical annex, or publish the script's
-   own split with an explanation. This is the only substantive gap between the archive and the
-   report.
+2. **Resolve the Table 3 tenure split** (§7). The annex has been found (§9c) and states the rule:
+   the population-adjustment discrepancy is split in the same tenure ratio as net additions. The
+   equations are page images, so this means reading those pages and implementing the step. This is
+   the only substantive gap left between the archive and the report.
 3. **Add Figure 1 and Tables 5-6** to `Summary Replication.R` from the historic E&W data (§9), and
    pin down the 1940s/1950s/1970s discrepancies first.
 4. **Add Figure 9** from the price and wage data (§9a). The transform is fully specified in

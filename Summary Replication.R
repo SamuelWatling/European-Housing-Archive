@@ -31,11 +31,13 @@
 #
 # WHAT THIS FILE CANNOT REPRODUCE
 # -------------------------------
-#   Figure 1  (England & Wales, 1856-2019)  needs HistoricEnglandandWales.csv
-#   Figure 6  (residential investment)      needs the capital formation files
-#   Figure 9  (house prices vs wages)       needs UK_House_Price_Since_1952.csv
-#                                           and Wage Price Data.csv (both lost)
-#   Table 1   (dwelling sizes)              needs the 1950s rooms data (lost)
+#   Figure 1  (England & Wales, 1856-2019)  data found, not yet wired in
+#   Figure 9  (house prices vs wages)       data found, not yet wired in
+#   Table 1   (dwelling sizes)              NOT European data at all -- it was
+#                                           taken from a book, so there is
+#                                           nothing here to replicate
+# Figure 6 IS reproduced, from the Capital Formation sheet added to the workbook
+# on 10 September 2026.
 # The counterfactual in Table 3 is a separate script, Counterfactual Replication.R.
 # =============================================================================
 
@@ -91,6 +93,22 @@ raw <- read_excel(file.path(DATA_DIR, "Replication Data full.xlsx")) %>%
 
 stopifnot(nrow(raw) == 1174, n_distinct(raw$Country) == 16,
           all(WEST %in% raw$Country))
+
+# Capital formation, added to the workbook as a second sheet on 10 Sep 2026.
+# Assembled from Complete West / Eastern European Capital Formation.csv, which
+# come from UN Annual Bulletin table 28 (raw scan: InvestScan.xlsx). Eleven OCR
+# decimal-point errors were repaired in the residential series -- Austria 1968
+# read 57.4 for 5.74, Portugal 1982 read 909 for 9.09. Implausible values in the
+# other six items are flagged, not altered; see capital_formation_flags.csv.
+capform <- read_excel(file.path(DATA_DIR, "Replication Data full.xlsx"),
+                      sheet = "Capital Formation") %>%
+  select(Region, Country, Year, everything()) %>%
+  select(1:10) %>%
+  mutate(across(-c(Region, Country), as.numeric))
+
+stopifnot("Capital Formation sheet missing or short" = nrow(capform) > 900,
+          "residential GFCF column missing" =
+            "GFCF residential (% GDP)" %in% names(capform))
 
 # ---- Rebuilding the housing stock estimate ---------------------------------
 # The reported stock series is sparse -- many countries report a dwelling count
@@ -438,6 +456,39 @@ fig5 <- rel_percap %>%
   theme_report
 save_fig(fig5, "Figure 05 - homes per person relative to UK")
 
+# Figure 6 -- residential investment as a share of GDP, 1955-1979.
+# Coverage is uneven and the report says so in its own footnote: Switzerland
+# stops in 1969, Austria has only ten years. The bars are means over whatever
+# years each country reports, which is what the published chart does.
+fig6_data <- capform %>%
+  filter(Country %in% WEST, Year %in% POSTWAR, !is.na(`GFCF residential (% GDP)`)) %>%
+  group_by(Country) %>%
+  summarise(share = mean(`GFCF residential (% GDP)`),
+            yrs = n(), span = paste0(min(Year), "-", max(Year)), .groups = "drop") %>%
+  mutate(Country = nice(Country))
+
+message("\nFigure 6: residential investment, mean share of GDP 1955-79")
+print(fig6_data %>% mutate(share = round(share, 2)) %>% arrange(desc(share)), n = 20)
+
+# The published chart ranks Switzerland top and the UK bottom. Assert the ends,
+# which is what the figure's claim rests on -- the middle is close enough to be
+# within reading error of a bar chart and the report gives no numeric table.
+stopifnot(
+  "Figure 6: UK should have the lowest residential investment share" =
+    fig6_data$Country[which.min(fig6_data$share)] == "United Kingdom",
+  "Figure 6: Switzerland should have the highest" =
+    fig6_data$Country[which.max(fig6_data$share)] == "Switzerland")
+
+fig6 <- fig6_data %>%
+  ggplot(aes(reorder(Country, share), share,
+             fill = Country == "United Kingdom")) +
+  geom_col() + coord_flip() +
+  scale_fill_manual(values = c(`TRUE` = "seagreen4", `FALSE` = "yellowgreen"), guide = "none") +
+  labs(title = "Figure 6: Postwar Britain had the lowest investment rate in residential construction",
+       subtitle = "Investment in residential buildings, average share of GDP per year, 1955 to 1979",
+       x = NULL, y = NULL) + theme_report
+save_fig(fig6, "Figure 06 - residential investment share of GDP")
+
 # Figure 7 -- public housebuilding, UK against the European average
 euro_public <- west %>%
   filter(Country != "Unitedkingdom") %>%
@@ -524,5 +575,6 @@ save_fig(fig12, "Figure 12 - homes per person relative to UK, modern")
 write_csv(table2,      file.path(OUT_DIR, "Table 2 - private housebuilding 1955-1979.csv"))
 write_csv(stock_check, file.path(OUT_DIR, "Stock estimate rebuild check.csv"))
 write_csv(panel,       file.path(OUT_DIR, "Summary panel.csv"))
+write_csv(fig6_data,   file.path(OUT_DIR, "Figure 6 - residential investment.csv"))
 
-message("\nWrote tables and ", if (SAVE_FIGURES) "9 figures" else "no figures", " to:\n  ", OUT_DIR)
+message("\nWrote tables and ", if (SAVE_FIGURES) "10 figures" else "no figures", " to:\n  ", OUT_DIR)
