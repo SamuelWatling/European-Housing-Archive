@@ -16,7 +16,7 @@ unrunnable and is best read as documentation.
 | `Counterfactual Replication.R` | **Runs.** Reproduces published Table 3 totals exactly |
 | `Summary Replication.R` | **New, 10 Sep 2026.** Runs. Reproduces Table 2 and the report's quoted statistics |
 | `Project R Code/` (14 scripts) | **Cannot run and never will** — 54 of 60 input files are gone |
-| Published tenure split (Table 3) | **Does not reproduce.** Totals match, private/public does not — §7 |
+| Published tenure split (Table 3) | **Narrowed to one step, not yet closed** — §7 |
 | Historic England & Wales data | **Found 10 Sep 2026** in `Documents/Historical English Statistics` — §9 |
 | `Project R Code/` in version control | **No.** 14 scripts, untracked, one copy on one disk — §10.6 |
 
@@ -155,42 +155,66 @@ years; add it back. A fallback series covers years no observation anchors.
 
 **The rebuild was verified against the stored column: 14 of 15 countries agree to within 0.006%.**
 
-### Belgium is the exception, and it is a measurement break
+### Belgium — resolved by the annex, 10 September 2026
 
-Belgium reports a stock for 1948 (2,888k) and then nothing until 1963 (3,236k). Completions over
-1948-62 sum to about 613k while the reported stock rises by only 348k — the two Belgian figures are
-not counting the same thing. The workbook's estimate rolls 1963 backwards and **disregards the 1948
-figure**; a faithful rebuild honours it and starts 264k higher, converging by 1963.
+The rebuild originally disagreed with the stored series for Belgium by up to 264k (10%). The
+methodology annex (§9c) settles it, naming Belgium as the **only** country where the "no data
+before" rule applies:
 
-Worth one basis point on Belgium's average private rate (1.51 published, 1.50 rebuilt) and nothing
-else. `Summary Replication.R` flags it rather than patching, because patching means silently
-discarding a reported observation — but given §5, this is probably a deliberate discontinuity
-exclusion and could be made explicit instead.
+> *"The only country this applies to from before 1955 is Belgium, which gives a housing stock value
+> of 3.2 million in 1963... This gives a value of 310,000 net additions from 1955 onwards, which
+> implies a housing stock of approximately 2.9 million in 1955."*
+
+So the series is rolled **backwards from 1963** and Belgium's reported 1948 figure is deliberately
+not an anchor — reasonably, since completions over 1948-62 sum to ~613k while the reported stock
+rises by only 348k, so the two figures are not counting the same thing.
+
+`Summary Replication.R` now carries a one-row `STOCK_EXCLUSIONS` table dropping Belgium 1948, with
+the annex quoted as justification. **With that, the rebuild agrees with the published estimate for
+all 15 countries to within 0.006%** — Belgium included, at 0.002% — and Belgium's Table 2 average
+returns to the published 1.51.
+
+The lesson worth keeping: the rebuild was right about the arithmetic and wrong about the data. A
+reported observation that contradicts the roll-forward is a candidate for exclusion, not proof the
+method is broken.
 
 ---
 
-## 7. The published tenure split does not reproduce
+## 7. The published tenure split — narrowed to one step
 
-**Table 3's totals reproduce exactly. Its private/public split does not.**
+**Table 3's totals reproduce exactly. Its private/public split does not**, and the differences
+cancel on every row, so it is a pure re-split rather than a different projection.
 
 | | published Table 3 | `Counterfactual Replication.R` |
 |---|---|---|
 | UK | 7,875,000 / 4,358,000 | 8,054,000 / 4,179,000 |
-| Western European Average | 5,859,255 / -1,604,855 | 5,301,000 / -1,047,000 |
-| tenure mix | 64:36 -> **80:20** | 66:34 -> **81:19** |
+| tenure mix | 64:36 | 66:34 |
 
-The differences **cancel exactly** on every row — it is a pure re-split between the two tenure
-columns, not a different projection. Ten of thirteen published tenure ratios still match.
+**The annex rule is already implemented.** §9c gives it: the population-adjustment discrepancy is
+allocated *"in the same tenure ratio as the total tenure ratio of the net additions"*, i.e.
 
-One clue: published Switzerland and Belgium both show public = **-4,358,000**, precisely the
-negative of the UK's published public figure, i.e. clamped to zero public building. The archived
-script produces no such clamp. **The version that generated Table 3 had a tenure step this one does
-not**, most likely documented in the missing technical annex.
+    J_Private Additions = J_Net Private Building - (J_Private Building / J_Total Building) x J_Population Adjustments
 
-Unresolved. Anyone rebuilding the counterfactual should decide whether to reproduce the published
-split or to publish the script's own and explain the difference.
+and the script's `AdjCumuPriv = NewCumupriv + PrivRatio * DiffNum` is algebraically that same
+expression. So the rule is not the problem.
 
----
+**The problem is which ratio.** Both splits divide the same total of 12,233,000:
+
+| ratio | value | gives UK private |
+|---|---|---|
+| script: stock-weighted cumulative building | 0.65841 | 8,054,000 |
+| implied by published Table 3 | 0.64380 | 7,875,000 |
+| **plain cumulative gross building, `sum(Privatebuild) / sum(Gross Building)`, 1955-2015** | **0.64442** | 7,881,000 |
+
+The script weights each year's tenure ratio by the counterfactual stock path; the published table
+appears to use the unweighted cumulative building ratio. That closes 1.46pp of a 1.46pp gap to a
+residue of **0.06pp**, which is the remaining unknown — plausibly a slightly different year window,
+or the stock-estimate rounding.
+
+**One further clue, unexplained.** Published Switzerland and Belgium both show public =
+**-4,358,000**, exactly minus the UK's published public figure, meaning those counterfactuals have
+*zero* public additions. The script produces -3,822,000 for Switzerland, i.e. 357,000 of public
+building rather than none. There may be a floor at zero that the script lacks.
 
 ## 8. `Summary Replication.R`
 
@@ -249,8 +273,8 @@ From the clean file, average build rates by decade against published Table 6 (p5
 | 1950s | 1.83 / 0.62 / 1.21 | 1.81 / 0.62 / 1.20 | 0.01-0.02 out, unexplained |
 | 1970s | 1.52 / 0.84 / 0.68 | 1.55 / 0.86 / 0.69 | 0.02-0.03 out, unexplained |
 
-So Figure 1 and Tables 5-6 are recoverable, with a small unresolved discrepancy worth pinning down
-before they are republished.
+**Figure 1 and Table 6 are now in `Summary Replication.R`** (10 Sep 2026). The script asserts the
+seven clean decades and records the three that differ in a comment rather than fudging them.
 
 ---
 
@@ -277,8 +301,14 @@ folder is where the Figure 9 work was actually done.
 `a-millennium-of-macroeconomic-data-for-the-uk.xlsx` (the full BoE dataset, 109 sheets) is there
 too, so the quarterly export can be regenerated if `Quarterly Index.csv` is ever lost.
 
-**Consequence:** Figure 9 is reproducible. Note the source paths are outside this repo and outside
-`Processed European Data` -- a fourth data location for this project.
+**Figure 9 is now in `Summary Replication.R`** (10 Sep 2026), indexed to 1960 Q1 = 1, and the shape
+matches `PriceWageGraph.png` exactly -- tracking wages until 1971, spikes in 1973, 1980 and 1989,
+sharp divergence from 2000. Real house prices end at 6.09x their 1960 level against 3.55x for wages.
+
+**One trap.** The year in `Quarterly Index.csv` is written only against Q1 -- merged cells in the
+original sheet -- so without a `fill()` you keep one row per year instead of four and the join
+collapses to a quarter of the data without erroring. The 2022 script had that `fill()`; leaving it
+out is how this was first got wrong. The assertion on quarter count is what caught it.
 
 
 ## 9b. Capital formation, and Figure 6 — 10 September 2026
@@ -351,10 +381,15 @@ reading those pages as pages. Not yet done.
 
 ## 10. Hazards
 
-1. **`Dropbox\Eurpean` (typo) is a diverged duplicate.** Of four files compared,
-   `CompleteData1958-1991.csv` and `Complete West Capital Formation.csv` **differ** from the
-   `Processed European Data` copies; `Combined.csv` and `1950s Tenure Data.csv` are identical.
-   Neither folder is authoritative. Resolve before trusting either.
+1. ~~**`Dropbox\Eurpean` is a diverged duplicate.**~~ **Resolved 10 Sep 2026.** It was not
+   redundant -- it uniquely held `1950HouseDataIV.csv` (one of the six surviving script inputs),
+   `Rental Prices.csv`, and **`Scanned UN data/`: seven UN source workbooks, 1957-1988
+   (*Housing and Construction Statistics for Europe*)** -- the primary source for the whole panel.
+   All copied into `Processed European Data`, which now contains every item in `Eurpean` bar an
+   empty folder. Of the two files that differed, `Processed European Data` holds the **corrected**
+   copy: `CompleteData1958-1991.csv` differs by a single value, West Germany's 1963 floor space,
+   which reads `4.2` in `Eurpean` against `74.2` in `Processed` -- and the series runs 73.5, 74.2,
+   76.3. `Eurpean` is superseded; nothing was deleted.
 2. **`setwd()` at line 1 of both replication scripts.** They point at
    `C:/Users/samue/Documents/Processed European Data`, which does not exist — the data is in
    Dropbox. The practical effect: anything the script writes lands in the *data* folder rather than
@@ -387,13 +422,13 @@ Not reproducible from what survives:
 
 | | needs |
 |---|---|
-| Figure 1, Tables 5-6 | historic E&W data — **found**, see §9 |
+| Figure 1, Tables 5-6 | **reproduced**, §9 |
 | Figure 6 (residential investment) | **reproduced 10 Sep 2026** — §9b |
-| Figure 9 (house prices vs wages) | **both found 10 Sep 2026** — §9a |
+| Figure 9 (house prices vs wages) | **reproduced**, §9a |
 | Table 1 (dwelling sizes) | **not European data at all.** Taken from a book (Sam, 10 Sep 2026), so there is nothing here to replicate and nothing missing |
-| Table 3 tenure split | the technical annex — §7 |
+| Table 3 tenure split | narrowed to 0.06pp, §7 — the one thing still open |
 
-Also missing but promised by the README: a **methodology** document.
+The **methodology** document the README promises is the annex, now in `Processed European Data` (§9c).
 
 ---
 
@@ -412,18 +447,15 @@ Also missing but promised by the README: a **methodology** document.
 
 ## 13. Next steps
 
-1. **Commit `Project R Code/`** (§10.6). It is untracked, unique, and the only documentation of
-   the method that survives. Cheapest and highest-value action here.
-2. **Resolve the Table 3 tenure split** (§7). The annex has been found (§9c) and states the rule:
-   the population-adjustment discrepancy is split in the same tenure ratio as net additions. The
-   equations are page images, so this means reading those pages and implementing the step. This is
-   the only substantive gap left between the archive and the report.
-3. **Add Figure 1 and Tables 5-6** to `Summary Replication.R` from the historic E&W data (§9), and
-   pin down the 1940s/1950s/1970s discrepancies first.
-4. **Add Figure 9** from the price and wage data (§9a). The transform is fully specified in
-   `Domestic Britain Code.R` lines 376-400 and both inputs are on disk, so this is the most
-   straightforward of the remaining figures.
-5. **Resolve `Dropbox\Eurpean` against `Processed European Data`** (§10.1) and delete the loser.
-6. Install `ggpattern` if Figure 10 needs to match the published styling.
-7. Consider whether `Project R Code/` should be marked read-only or moved to a `docs/` subfolder,
-   so it stops looking like code that could be run.
+Everything in the report is now reproduced except the Table 3 tenure split.
+
+1. **Close the last 0.06pp on the tenure split** (§7). Try the unweighted cumulative building
+   ratio in `Counterfactual Replication.R` in place of the stock-weighted one, and test whether a
+   zero floor on counterfactual public additions produces the published -4,358,000 for Switzerland
+   and Belgium. Success test: the UK row landing on 7,875,000 / 4,358,000.
+2. **Pin down Table 6's 1940s, 1950s and 1970s** (§9). The 1940s is war-year exclusion; the other
+   two are out by 0.02-0.03 for no reason yet found.
+3. **Read the annex's Stages 1-7** (pp 9-16) against `Counterfactual Replication.R` line by line.
+   Two things have already been found this way; there may be more.
+4. Install `ggpattern` if Figure 10 needs to match the published styling.
+5. Consider moving `Project R Code/` to a `docs/` subfolder so it stops looking runnable.

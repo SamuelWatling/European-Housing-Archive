@@ -31,13 +31,13 @@
 #
 # WHAT THIS FILE CANNOT REPRODUCE
 # -------------------------------
-#   Figure 1  (England & Wales, 1856-2019)  data found, not yet wired in
-#   Figure 9  (house prices vs wages)       data found, not yet wired in
-#   Table 1   (dwelling sizes)              NOT European data at all -- it was
-#                                           taken from a book, so there is
-#                                           nothing here to replicate
-# Figure 6 IS reproduced, from the Capital Formation sheet added to the workbook
-# on 10 September 2026.
+#   Table 1 (dwelling sizes) is the only thing not reproduced anywhere, and it
+#   needs nothing: it came from a book, not the European data.
+#
+# Figures 1, 6 and 9 were all listed as unreproducible when this file was
+# written on 9 September 2026. All three are now in, after the data behind them
+# turned up in folders nothing referenced (Figures 1 and 9) and the capital
+# formation series was added to the workbook (Figure 6).
 # The counterfactual in Table 3 is a separate script, Counterfactual Replication.R.
 # =============================================================================
 
@@ -110,6 +110,14 @@ stopifnot("Capital Formation sheet missing or short" = nrow(capform) > 900,
           "residential GFCF column missing" =
             "GFCF residential (% GDP)" %in% names(capform))
 
+# ---- Observations excluded from the rebuild --------------------------------
+# Defined here because the rebuild below needs it. The reasoning is with the
+# validation block that follows the rebuild.
+STOCK_EXCLUSIONS <- tibble::tribble(
+  ~Country,  ~Year, ~why,
+  "Belgium",  1948, "measurement discontinuity; annex p17 rolls Belgium back from 1963"
+)
+
 # ---- Rebuilding the housing stock estimate ---------------------------------
 # The reported stock series is sparse -- many countries report a dwelling count
 # only at censuses. The estimate fills the gaps by rolling the stock forward on
@@ -135,6 +143,12 @@ stopifnot("Capital Formation sheet missing or short" = nrow(capform) > 900,
 # this originally lived and which is the only reason it can be recovered at all.
 
 stock <- raw %>%
+  # Drop the excluded observations BEFORE the roll-forward, so they anchor
+  # nothing. See STOCK_EXCLUSIONS below the rebuild for why each is here.
+  mutate(`Reported Housing Stock` =
+           if_else(paste(Country, Year) %in%
+                     paste(STOCK_EXCLUSIONS$Country, STOCK_EXCLUSIONS$Year),
+                   NA_real_, `Reported Housing Stock`)) %>%
   arrange(Country, Date) %>%
   group_by(Country) %>%
   mutate(
@@ -185,23 +199,32 @@ print(stock_check %>% mutate(across(where(is.numeric), ~ round(.x, 3))), n = 20)
 
 # Every country except Belgium agrees to floating-point noise.
 stopifnot(
-  "rebuild diverges for a country other than Belgium" =
-    all(stock_check$max_pct_diff[stock_check$Country != "Belgium"] < 0.01),
+  "rebuild diverges from the published estimate" =
+    all(stock_check$max_pct_diff < 0.01),
   "NA pattern differs between rebuilt and stored" =
     identical(is.na(stock$StockStored), is.na(stock$StockRebuilt))
 )
 
-# BELGIUM, the one country where the rebuild diverges, and it is a measurement
-# break rather than a coding difference. Belgium reports a stock for 1948
-# (2,888k) and then nothing until 1963 (3,236k). Completions over 1948-62 sum to
-# about 613k while the reported stock rises by only 348k, so the two Belgian
-# figures are not counting the same thing. The workbook's estimate resolves this
-# by rolling 1963 backwards on completions and disregarding the 1948 figure; the
-# rebuild here honours it, and so starts 264k higher and converges by 1963.
+# BELGIUM. The methodology annex (Methodology-The-housebuilding-crisis-
+# February-2023.pdf, p17, "Interpolation") names Belgium as the ONLY country
+# where the "no data before" rule applies, and works it through:
 #
-# Downstream this is worth one basis point on Belgium's average private rate
-# (1.51 published, 1.50 here) and nothing anywhere else. It is flagged rather
-# than patched, because patching means silently discarding a reported figure.
+#   "The only country this applies to from before 1955 is Belgium, which gives a
+#    housing stock value of 3.2 million in 1963. In 1962 46,000 homes were built
+#    and 2,000 were demolished. Therefore, a ratio of 2:46 was assumed for
+#    demolitions to construction for all previous years. Between 1956 and 1963
+#    325,000 houses were built, implying 14,000 total demolitions. This gives a
+#    value of 310,000 net additions from 1955 onwards, which implies a housing
+#    stock of approximately 2.9 million in 1955."
+#
+# So the series is rolled BACKWARDS from 1963 and Belgium's reported 1948 figure
+# is deliberately not used as an anchor. That reported figure is inconsistent
+# with the 1963 one anyway: completions over 1948-62 sum to about 613k while the
+# reported stock rises by only 348k, so the two are not counting the same thing.
+#
+# The exclusion below is what makes this rebuild agree with the published series
+# (2.89m in 1955, matching the annex's "approximately 2.9 million"). Without it
+# the rebuild anchors on 1948 and runs 264k high until they converge in 1963.
 
 # ---- Two stock series, and which to use where ------------------------------
 # The workbook carries two:
@@ -304,8 +327,7 @@ t2_check <- table2 %>%
 
 # Belgium is allowed 0.01 on the average, for the reason documented above.
 stopifnot(
-  "Table 2 average rate does not reproduce" =
-    all(t2_check$d_avg <= ifelse(t2_check$Country == "Belgium", 0.011, 0.0011)),
+  "Table 2 average rate does not reproduce" = all(t2_check$d_avg < 0.011),
   "Table 2 maximum rate does not reproduce" = all(t2_check$d_max < 0.011),
   "Table 2 year of maximum does not reproduce" = all(t2_check$yr_ok),
   "Table 2 1979 rate does not reproduce" = all(t2_check$d_79 < 0.011)
@@ -570,11 +592,143 @@ fig12 <- rel_percap %>%
   theme_report
 save_fig(fig12, "Figure 12 - homes per person relative to UK, modern")
 
+# ---- Figure 1 and Table 6: England and Wales, 1856-2019 --------------------
+# Not European data. Assembled in 2022 from Holmans, Historical Statistics of
+# British Housing, via seven hand-extracted CSVs that no longer exist -- but the
+# processed output survives, with the build rates already derived.
+
+ew <- read_csv(file.path(DATA_DIR, "England and Wales Housing Data from 1856.csv"),
+               show_col_types = FALSE) %>%
+  select(-1) %>%
+  mutate(Year = as.integer(format(as.Date(Date), "%Y")),
+         Decade = 10 * (Year %/% 10))
+
+stopifnot("England & Wales file is short" = nrow(ew) > 150,
+          "expected build rate columns missing" =
+            all(c("Total Build Rate", "Private Build Rate", "Public Build Rate") %in% names(ew)))
+
+table6 <- ew %>%
+  filter(Decade >= 1920, Decade <= 2010) %>%
+  group_by(Decade) %>%
+  summarise(across(c(`Total Build Rate`, `Private Build Rate`, `Public Build Rate`),
+                   ~ mean(.x, na.rm = TRUE)), .groups = "drop")
+
+message("\nTable 6: housebuilding rates by decade, England and Wales")
+print(table6 %>% mutate(across(-Decade, ~ round(.x, 2))), n = 20)
+
+# Published Table 6, p56. SEVEN of ten decades reproduce exactly. The three that
+# do not are recorded rather than fudged:
+#   1940s  published 1.16/0.26/0.90, here 0.62/0.14/0.49. The published row
+#          excludes the war years -- 1945-49 gives 1.14/0.21/0.93. The exact
+#          window is not recoverable from what survives.
+#   1950s  published 1.81/0.62/1.20, here 1.83/0.62/1.21 -- 0.01-0.02 out
+#   1970s  published 1.55/0.86/0.69, here 1.52/0.84/0.68 -- 0.02-0.03 out
+published_t6 <- tribble(
+  ~Decade, ~total, ~priv, ~pub,
+  1920,      1.77,  1.15, 0.62,
+  1930,      2.62,  2.01, 0.61,
+  1960,      2.04,  1.20, 0.84,
+  1980,      0.96,  0.72, 0.24,
+  1990,      0.73,  0.62, 0.12,
+  2000,      0.67,  0.59, 0.08,
+  2010,      0.57,  0.45, 0.12)
+
+t6_check <- table6 %>% inner_join(published_t6, by = "Decade")
+stopifnot("Table 6 does not reproduce for the seven clean decades" =
+  all(abs(round(t6_check$`Total Build Rate`, 2)   - t6_check$total) < 0.011) &&
+  all(abs(round(t6_check$`Private Build Rate`, 2) - t6_check$priv)  < 0.011) &&
+  all(abs(round(t6_check$`Public Build Rate`, 2)  - t6_check$pub)   < 0.011))
+message("  Table 6 reproduces for 1920s, 1930s, 1960s, 1980s, 1990s, 2000s, 2010s.")
+message("  1940s (war years), 1950s and 1970s differ -- see comment above.")
+
+fig1 <- ew %>%
+  filter(Year >= 1856, Year <= 2019) %>%
+  select(Year, Private = `Private Build Rate`, Public = `Public Build Rate`) %>%
+  pivot_longer(-Year, names_to = "Tenure", values_to = "Rate") %>%
+  ggplot(aes(Year, Rate, fill = Tenure)) +
+  geom_col(width = 1) +
+  geom_vline(xintercept = 1947, linetype = "dashed") +
+  annotate("text", x = 1947, y = Inf, label = " TCPA 1947", hjust = 0, vjust = 1.6, size = 3) +
+  labs(title = "Figure 1: The English and Welsh housebuilding rate decreased after 1947",
+       subtitle = "Annual housebuilding as a share of housing stock (%), England and Wales",
+       x = NULL, y = NULL) + theme_report
+save_fig(fig1, "Figure 01 - England and Wales housebuilding 1856-2019", w = 9)
+
+# ---- Figure 9: house prices against wages ----------------------------------
+# Both inputs were listed as lost. They survive under different names:
+#   UK_House_Price_Since_1952.csv -> UK_house_price_since_1952.xlsx (Nationwide)
+#   Wage Price Data.csv           -> Quarterly Index.csv (Bank of England
+#                                    "Q1. Quarterly Headline Series")
+# The transform is from Domestic Britain Code.R lines 385-400: deflate both by
+# CPI, index each to 1960 Q1, take log10. The script's constants 6.57 and 0.925
+# are the 1960 Q1 CPI and the deflated 1960 Q1 earnings -- which is how the two
+# files were identified.
+
+hp_raw <- read_excel(file.path(DATA_DIR, "UK_house_price_since_1952.xlsx"),
+                     sheet = "UK HP Since 1952", col_names = FALSE, .name_repair = "minimal")
+names(hp_raw) <- paste0("c", seq_len(ncol(hp_raw)))
+
+house <- hp_raw %>%
+  filter(str_detect(as.character(c1), "^Q[1-4] [0-9]{4}$")) %>%
+  transmute(Quarter = zoo::as.yearqtr(gsub(" ", "/", as.character(c1)), format = "Q%q/%Y"),
+            HousePrice = as.numeric(gsub(",", "", as.character(c3))))
+
+boe <- read_csv(file.path(DATA_DIR, "Quarterly Index.csv"),
+                skip = 7, col_names = FALSE, show_col_types = FALSE) %>%
+  # Column positions confirmed against the 1960 Q1 row: 15 is the spliced CPI
+  # (6.57) and 19 the spliced Average Weekly Earnings (9.25).
+  transmute(Year = suppressWarnings(as.integer(X1)), Q = X2,
+            CPI = suppressWarnings(as.numeric(X15)),
+            Earnings = suppressWarnings(as.numeric(X19))) %>%
+  # The year is written only against Q1 -- merged cells in the original sheet.
+  # The 2022 script had a fill() for exactly this; without it you keep one row
+  # per year instead of four and the join silently collapses to a fraction.
+  fill(Year, .direction = "down") %>%
+  filter(!is.na(Year), !is.na(Q), Q %in% c("Q1","Q2","Q3","Q4")) %>%
+  mutate(Quarter = zoo::as.yearqtr(paste0(Year, " ", Q), format = "%Y Q%q"))
+
+pw <- boe %>%
+  inner_join(house, by = "Quarter") %>%
+  filter(!is.na(CPI), !is.na(Earnings), !is.na(HousePrice)) %>%
+  arrange(Quarter) %>%
+  # Rebase CPI so 1960 Q1 = 1, deflate, then index each series to 1960 Q1 = 1.
+  mutate(cpi60 = CPI[Quarter == zoo::as.yearqtr("1960 Q1")],
+         CPIr = CPI / cpi60,
+         RealEarnings = Earnings / CPIr,
+         RealHouse    = HousePrice / CPIr) %>%
+  mutate(BaseEarnings = RealEarnings / RealEarnings[Quarter == zoo::as.yearqtr("1960 Q1")],
+         BaseHouse    = RealHouse    / RealHouse[Quarter == zoo::as.yearqtr("1960 Q1")]) %>%
+  filter(Quarter >= zoo::as.yearqtr("1960 Q1"))
+
+stopifnot("Figure 9 series should be indexed to 1 at 1960 Q1" =
+            abs(pw$BaseEarnings[1] - 1) < 1e-9 && abs(pw$BaseHouse[1] - 1) < 1e-9,
+          "Figure 9 has too few quarters" = nrow(pw) > 180)
+
+message("\nFigure 9: real house prices and wages, 1960 Q1 = 1")
+message("  quarters: ", nrow(pw), " (", format(min(pw$Quarter)), " to ", format(max(pw$Quarter)), ")")
+message("  final values -- house prices ", round(tail(pw$BaseHouse, 1), 2),
+        "x, wages ", round(tail(pw$BaseEarnings, 1), 2), "x their 1960 level in real terms")
+
+fig9 <- pw %>%
+  select(Quarter, `Real house prices` = BaseHouse, `Real wages` = BaseEarnings) %>%
+  pivot_longer(-Quarter, names_to = "Series", values_to = "Index") %>%
+  mutate(Year = as.numeric(Quarter)) %>%
+  ggplot(aes(Year, Index, colour = Series)) +
+  geom_line(linewidth = 0.7) +
+  scale_colour_manual(values = c(`Real house prices` = "firebrick", `Real wages` = "steelblue4")) +
+  labs(title = "Figure 9: House prices were already disconnecting from wages before 1980",
+       subtitle = "Real UK house prices and real average weekly earnings, 1960 Q1 = 1",
+       x = NULL, y = NULL) + theme_report
+save_fig(fig9, "Figure 09 - house prices against wages")
+
 # ---- Outputs ---------------------------------------------------------------
 
 write_csv(table2,      file.path(OUT_DIR, "Table 2 - private housebuilding 1955-1979.csv"))
 write_csv(stock_check, file.path(OUT_DIR, "Stock estimate rebuild check.csv"))
 write_csv(panel,       file.path(OUT_DIR, "Summary panel.csv"))
 write_csv(fig6_data,   file.path(OUT_DIR, "Figure 6 - residential investment.csv"))
+write_csv(table6,      file.path(OUT_DIR, "Table 6 - England and Wales rates by decade.csv"))
+write_csv(pw %>% select(Quarter, BaseHouse, BaseEarnings),
+          file.path(OUT_DIR, "Figure 9 - real house prices and wages.csv"))
 
-message("\nWrote tables and ", if (SAVE_FIGURES) "10 figures" else "no figures", " to:\n  ", OUT_DIR)
+message("\nWrote tables and ", if (SAVE_FIGURES) "12 figures" else "no figures", " to:\n  ", OUT_DIR)
