@@ -1,0 +1,528 @@
+# Summary Replication.R
+# =============================================================================
+# Reproduces the summary statistics and charts in
+#   Watling, S. and Breach, A. (2023), "The Housebuilding Crisis",
+#   Centre for Cities, February 2023.
+#
+# The README has always promised this file; it was never in the archive. This
+# rebuilds it from the one surviving input, `Replication Data full.xlsx`.
+#
+# WHY THIS EXISTS IN THIS FORM
+# ----------------------------
+# The 2022 working code (Project R Code/) is not runnable and will not be: it
+# reads 60 distinct input files of which 54 no longer exist, and it points at
+# eight working directories on a Centre for Cities account that is gone. Those
+# scripts are now documentation of method, not code. Everything here is
+# therefore derived from the published workbook alone, so it runs anywhere.
+#
+# WHAT IS DIFFERENT FROM THE ORIGINAL
+# -----------------------------------
+# The original read `Combined.csv`, whose columns are named X50, Y5, Y7, Y2,
+# `X5 (Estimate)` and `1`..`7`. The published workbook carries the same data
+# under readable names. The dictionary below maps between them so this file can
+# be read alongside the 2022 scripts.
+#
+# The workbook also stores `Housing Stock (Estimate)` -- a modelled series, not
+# an observation. Rather than take it on trust, this script REBUILDS it from
+# the reported stock, gross building and demolitions, and then checks its own
+# rebuild against the stored column. That is the substantive addition here: the
+# estimate is the denominator of every rate in the report, and it previously
+# arrived unexplained.
+#
+# WHAT THIS FILE CANNOT REPRODUCE
+# -------------------------------
+#   Figure 1  (England & Wales, 1856-2019)  needs HistoricEnglandandWales.csv
+#   Figure 6  (residential investment)      needs the capital formation files
+#   Figure 9  (house prices vs wages)       needs UK_House_Price_Since_1952.csv
+#                                           and Wage Price Data.csv (both lost)
+#   Table 1   (dwelling sizes)              needs the 1950s rooms data (lost)
+# The counterfactual in Table 3 is a separate script, Counterfactual Replication.R.
+# =============================================================================
+
+library(tidyverse)
+library(readxl)
+library(zoo)      # na.approx(), for the interpolation below
+
+options(scipen = 999)
+
+# ---- Configuration ---------------------------------------------------------
+# No setwd(). The 2022 scripts used it heavily and it is why output from them
+# lands in the data folder rather than where you ran them.
+
+DATA_DIR <- "C:/Users/samue/Dropbox/Processed European Data"
+if (!dir.exists(DATA_DIR)) DATA_DIR <- "/mnt/c/Users/samue/Dropbox/Processed European Data"
+stopifnot("DATA_DIR not found -- set it to wherever Replication Data full.xlsx lives" = dir.exists(DATA_DIR))
+
+OUT_DIR <- file.path(DATA_DIR, "Summary Replication Output")
+dir.create(OUT_DIR, showWarnings = FALSE)
+
+SAVE_FIGURES <- TRUE
+
+# Countries in the report's Western European sample. Greece, Italy, Spain and
+# Portugal are present in the workbook but excluded from every published figure.
+WEST <- c("Austria", "Belgium", "Denmark", "Finland", "France", "Germany",
+          "Ireland", "Netherlands", "Norway", "Sweden", "Switzerland",
+          "Unitedkingdom")
+POSTWAR <- 1955:1979   # the report's "post-war era"
+MODERN  <- 1980:2015   # the report's "modern era"
+
+# ---- Data dictionary -------------------------------------------------------
+# workbook column              old name    meaning
+#   Population                 X50         millions
+#   Reported Housing Stock     Y5          thousands, AS REPORTED (sparse)
+#   Gross Building             Y7          thousands completed, per year
+#   Demolitions                Y2          thousands, per year (very sparse)
+#   Housing Stock (Estimate)   X5 (Est.)   thousands, MODELLED -- rebuilt below
+#   Public Housing Ratio       `1`         public share of gross building
+#   Private Housing Ratio      `4`         private share of gross building
+#   PerCapHouse                PerCapHouse dwellings per 1,000 people
+#   Publicbuild / Privatebuild  --         ratio x gross building
+#   Public / Private / Total    --         rates, % of stock per year
+#
+# Columns `2`, `3`, `5`, `6`, `7` of Combined.csv are further UN tenure
+# categories; the report uses none of them and the workbook omits them.
+
+raw <- read_excel(file.path(DATA_DIR, "Replication Data full.xlsx")) %>%
+  select(-`...1`) %>%
+  # Excel stored every number as text, so coerce before anything else.
+  mutate(across(-c(Country, Date), ~ suppressWarnings(as.numeric(.x))),
+         Date = as.Date(Date),
+         Year = as.integer(format(Date, "%Y")))
+
+stopifnot(nrow(raw) == 1174, n_distinct(raw$Country) == 16,
+          all(WEST %in% raw$Country))
+
+# ---- Rebuilding the housing stock estimate ---------------------------------
+# The reported stock series is sparse -- many countries report a dwelling count
+# only at censuses. The estimate fills the gaps by rolling the stock forward on
+# net completions and then distributing the residual discrepancy across each
+# gap, so that the series passes exactly through every reported observation.
+#
+# Step by step, within each country and in date order:
+#   Firsthaus  reported stock, back-filled so the earliest years carry the
+#              first observation
+#   Ratio      demolitions / gross building, interpolated then filled. Used
+#              because demolitions are reported far more sparsely than building
+#   NetHaus    gross building net of that demolition ratio
+#   Cumuhaus   cumulative net additions
+#   Origcumu   stock rolled forward from the first reported observation
+#   DiffHaus   reported stock minus the rolled-forward stock, i.e. how far the
+#              roll-forward has drifted, known only in years with a reported figure
+#   Genhaus    roll-forward plus the linearly interpolated drift -- this is what
+#              makes the series hit every reported observation exactly
+#   Adjhaus    fallback for countries/years where no reported figure anchors the
+#              series, e.g. before the first observation
+#
+# Faithful to `Project R Code/90s Data Cleaning.R` lines 292-317, which is where
+# this originally lived and which is the only reason it can be recovered at all.
+
+stock <- raw %>%
+  arrange(Country, Date) %>%
+  group_by(Country) %>%
+  mutate(
+    Firsthaus  = `Reported Housing Stock`) %>%
+  fill(Firsthaus, .direction = "up") %>%
+  mutate(
+    OriginHaus = first(Firsthaus),
+    ImpDem     = na.approx(Demolitions, maxgap = 4, na.rm = FALSE),
+    Ratio      = ImpDem / `Gross Building`) %>%
+  fill(Ratio, .direction = "downup") %>%
+  mutate(
+    ImpTot     = na.approx(`Gross Building`, maxgap = 4, na.rm = FALSE),
+    NetHaus    = ImpTot - Ratio * ImpTot,
+    Cumuhaus   = cumsum(replace_na(NetHaus, 0)),
+    SecondHaus = Firsthaus + Cumuhaus,
+    # CumuAdj: cumulative additions, but only in years that have a reported
+    # stock. Filling it upwards gives each gap the cumulative total at the
+    # observation that closes it.
+    DumStock   = ifelse(is.na(`Reported Housing Stock`), NA, 1),
+    CumuAdj    = Cumuhaus * DumStock) %>%
+  fill(CumuAdj, .direction = "up") %>%
+  mutate(
+    Cumustart  = first(CumuAdj),
+    Origcumu   = OriginHaus + Cumuhaus - Cumustart,
+    Adjhaus    = SecondHaus - CumuAdj,
+    DiffHaus   = `Reported Housing Stock` - Origcumu,
+    Genhaus    = Origcumu + na.approx(DiffHaus, maxgap = 35, na.rm = FALSE),
+    StockRebuilt = coalesce(Genhaus, Adjhaus)) %>%
+  ungroup() %>%
+  select(Country, Date, Year, Population, `Reported Housing Stock`,
+         `Gross Building`, Demolitions, `Public Housing Ratio`,
+         `Private Housing Ratio`, StockStored = `Housing Stock (Estimate)`,
+         StockAlt = `Housing Stock (Alternative)`, StockRebuilt)
+
+# ---- Does the rebuild match the published estimate? ------------------------
+
+stock_check <- stock %>%
+  filter(!is.na(StockStored), !is.na(StockRebuilt)) %>%
+  group_by(Country) %>%
+  summarise(n = n(),
+            max_abs_diff = max(abs(StockStored - StockRebuilt)),
+            max_pct_diff = 100 * max(abs((StockStored - StockRebuilt) / StockStored)),
+            .groups = "drop") %>%
+  arrange(desc(max_abs_diff))
+
+message("Rebuilt stock estimate vs the workbook's stored column:")
+print(stock_check %>% mutate(across(where(is.numeric), ~ round(.x, 3))), n = 20)
+
+# Every country except Belgium agrees to floating-point noise.
+stopifnot(
+  "rebuild diverges for a country other than Belgium" =
+    all(stock_check$max_pct_diff[stock_check$Country != "Belgium"] < 0.01),
+  "NA pattern differs between rebuilt and stored" =
+    identical(is.na(stock$StockStored), is.na(stock$StockRebuilt))
+)
+
+# BELGIUM, the one country where the rebuild diverges, and it is a measurement
+# break rather than a coding difference. Belgium reports a stock for 1948
+# (2,888k) and then nothing until 1963 (3,236k). Completions over 1948-62 sum to
+# about 613k while the reported stock rises by only 348k, so the two Belgian
+# figures are not counting the same thing. The workbook's estimate resolves this
+# by rolling 1963 backwards on completions and disregarding the 1948 figure; the
+# rebuild here honours it, and so starts 264k higher and converges by 1963.
+#
+# Downstream this is worth one basis point on Belgium's average private rate
+# (1.51 published, 1.50 here) and nothing anywhere else. It is flagged rather
+# than patched, because patching means silently discarding a reported figure.
+
+# ---- Two stock series, and which to use where ------------------------------
+# The workbook carries two:
+#
+#   Housing Stock (Estimate)     built on the STATED housing stocks. This is the
+#                                default and what every rate and the
+#                                counterfactual are computed from.
+#   Housing Stock (Alternative)  the same series with the discontinuities
+#                                smoothed. National statistical offices change
+#                                their measurement criteria from time to time,
+#                                which puts steps into the stated series that
+#                                are artefacts of definition rather than of
+#                                building. Those steps look wrong on a chart, so
+#                                the published FIGURES use this version.
+#
+# The rule the report followed: stated stocks for the analysis, always, unless
+# there was a serious reason otherwise; the smoothed series only for plotting
+# levels. The two differ in 114 of 1,025 rows, across 8 countries -- Ireland
+# 1970-2015, Germany 1959-71, France 1988-98, Denmark 1980-98, Netherlands
+# 2012-20, Sweden 1991-93, Belgium 1948-62 and one UK year, 1989.
+#
+# It matters. On the stated series West Germany passes British homes per person
+# in 1963; on the smoothed series it does so in 1967-68, which is what the
+# report says on p20 and what Figure 5 shows.
+
+STOCK_ANALYSIS <- "StockRebuilt"   # "StockStored" to reproduce the report exactly
+STOCK_GRAPHS   <- "StockAlt"       # levels charts only -- see above
+
+# ---- Derived rates ---------------------------------------------------------
+# All rates are annual flows as a percentage of the standing stock.
+
+panel <- stock %>%
+  mutate(Stock       = .data[[STOCK_ANALYSIS]],
+         Privatebuild = `Private Housing Ratio` * `Gross Building`,
+         Publicbuild  = `Public Housing Ratio`  * `Gross Building`,
+         Private      = 100 * Privatebuild / Stock,
+         Public       = 100 * Publicbuild  / Stock,
+         Total        = 100 * `Gross Building` / Stock,
+         # Rates use the analysis stock; the per-person LEVEL used in the charts
+         # uses the smoothed series, for the reason above.
+         PerCapHouse     = 1000 * Stock / (Population * 1000),
+         PerCapHouseSmooth = 1000 * .data[[STOCK_GRAPHS]] / (Population * 1000))
+
+west <- panel %>% filter(Country %in% WEST)
+
+# ---- Table 2: private housebuilding, 1955 to 1979 --------------------------
+
+table2 <- west %>%
+  filter(Year %in% POSTWAR) %>%
+  group_by(Country) %>%
+  summarise(`Average annual private rate` = mean(Private, na.rm = TRUE),
+            `Maximum annual private rate` = max(Private, na.rm = TRUE),
+            `Year of maximum`             = Year[which.max(Private)],
+            `Private rate 1979`           = Private[Year == 1979],
+            .groups = "drop") %>%
+  arrange(`Average annual private rate`)
+
+# The published average row is NOT the mean of each country's statistics -- it is
+# the statistics OF the average series. Averaging the per-country maxima gives
+# 2.45 in 1967; the report says 2.20 in 1973, which is the peak of the averaged
+# series. Different question, different answer.
+euro_private_series <- west %>%
+  filter(Year %in% POSTWAR, Country != "Unitedkingdom") %>%
+  group_by(Year) %>%
+  summarise(rate = mean(Private, na.rm = TRUE), .groups = "drop")
+
+table2 <- table2 %>%
+  bind_rows(tibble(
+    Country                       = "Western European Average",
+    `Average annual private rate` = mean(euro_private_series$rate),
+    `Maximum annual private rate` = max(euro_private_series$rate),
+    `Year of maximum`             = euro_private_series$Year[which.max(euro_private_series$rate)],
+    `Private rate 1979`           = euro_private_series$rate[euro_private_series$Year == 1979]))
+
+message("\nTable 2: Britain's private housing supply from 1955 to 1979")
+print(table2 %>% mutate(across(where(is.double), ~ round(.x, 2))), n = 20)
+
+# Published Table 2, p28. Assert rather than eyeball.
+published_t2 <- tribble(
+  ~Country,        ~avg, ~max,  ~yr,  ~r79,
+  "Unitedkingdom", 0.95, 1.29, 1964L, 0.62,
+  "Austria",       1.05, 1.35, 1955L, 1.01,
+  "Ireland",       1.28, 2.48, 1974L, 2.30,
+  "Denmark",       1.44, 2.17, 1973L, 1.24,
+  "Belgium",       1.51, 2.10, 1976L, 1.65,
+  "France",        1.56, 2.25, 1972L, 1.41,
+  "Netherlands",   1.60, 1.99, 1974L, 1.36,
+  "Sweden",        1.72, 2.00, 1965L, 1.17,
+  "Norway",        1.90, 2.30, 1955L, 1.87,
+  "Germany",       2.19, 3.13, 1955L, 1.29,
+  "Switzerland",   2.28, 3.00, 1961L, 1.34,
+  "Finland",       2.43, 4.18, 1974L, 2.47)
+
+t2_check <- table2 %>%
+  inner_join(published_t2, by = "Country") %>%
+  mutate(d_avg = abs(round(`Average annual private rate`, 2) - avg),
+         d_max = abs(round(`Maximum annual private rate`, 2) - max),
+         yr_ok = `Year of maximum` == yr,
+         d_79  = abs(round(`Private rate 1979`, 2) - r79))
+
+# Belgium is allowed 0.01 on the average, for the reason documented above.
+stopifnot(
+  "Table 2 average rate does not reproduce" =
+    all(t2_check$d_avg <= ifelse(t2_check$Country == "Belgium", 0.011, 0.0011)),
+  "Table 2 maximum rate does not reproduce" = all(t2_check$d_max < 0.011),
+  "Table 2 year of maximum does not reproduce" = all(t2_check$yr_ok),
+  "Table 2 1979 rate does not reproduce" = all(t2_check$d_79 < 0.011)
+)
+# The Western European Average row, published as 1.72 / 2.20 / 1973 / 1.55.
+avg_row <- table2 %>% filter(Country == "Western European Average")
+stopifnot(
+  "Western European Average row does not reproduce" =
+    abs(round(avg_row$`Average annual private rate`, 2) - 1.72) < 0.011 &&
+    abs(round(avg_row$`Maximum annual private rate`, 2) - 2.20) < 0.011 &&
+    avg_row$`Year of maximum` == 1973 &&
+    abs(round(avg_row$`Private rate 1979`, 2) - 1.55) < 0.011
+)
+message("  Table 2 reproduces the published values, including the European average row.")
+
+# ---- Summary statistics quoted in the report text --------------------------
+
+pw <- west %>% filter(Year %in% POSTWAR)
+
+stat <- function(x) round(x, 2)
+
+pub_rates_pw <- pw %>% group_by(Country) %>%
+  summarise(public = mean(Public, na.rm = TRUE), .groups = "drop")
+
+percap_change <- west %>%
+  filter(Year %in% c(1955, 1979)) %>%
+  select(Country, Year, PerCapHouse) %>%
+  pivot_wider(names_from = Year, values_from = PerCapHouse) %>%
+  mutate(pct_change = 100 * (`1979` / `1955` - 1)) %>%
+  arrange(pct_change)
+
+uk_eras <- panel %>%
+  filter(Country == "Unitedkingdom", Year <= 2019) %>%
+  mutate(era = if_else(Year <= 1979, "1948-1979", "1980-2019")) %>%
+  group_by(era) %>%
+  summarise(gross = mean(Total, na.rm = TRUE),
+            private = mean(Private, na.rm = TRUE),
+            public = mean(Public, na.rm = TRUE), .groups = "drop")
+
+message("\nStatistics quoted in the report text:")
+message("  p18  public rate 1955-79   NL ", stat(pub_rates_pw$public[pub_rates_pw$Country == "Netherlands"]),
+        " (pub 1.4)  SE ", stat(pub_rates_pw$public[pub_rates_pw$Country == "Sweden"]),
+        " (pub 0.96)  UK ", stat(pub_rates_pw$public[pub_rates_pw$Country == "Unitedkingdom"]), " (pub 0.9)")
+message("  p19  UK homes per person 1955->1979  +",
+        stat(percap_change$pct_change[percap_change$Country == "Unitedkingdom"]), "%  (pub 26%)")
+message("  p38  UK gross rate  ", stat(uk_eras$gross[1]), "% then ", stat(uk_eras$gross[2]),
+        "%  (pub 1.9 then 0.8)")
+
+stopifnot(
+  "public rates on p18 do not reproduce" =
+    abs(pub_rates_pw$public[pub_rates_pw$Country == "Sweden"] - 0.96) < 0.01 &&
+    abs(pub_rates_pw$public[pub_rates_pw$Country == "Unitedkingdom"] - 0.90) < 0.01,
+  "UK homes per person change on p19 does not reproduce" =
+    abs(percap_change$pct_change[percap_change$Country == "Unitedkingdom"] - 26) < 0.5,
+  "UK era gross rates on p38 do not reproduce" =
+    abs(uk_eras$gross[1] - 1.9) < 0.05 && abs(uk_eras$gross[2] - 0.8) < 0.05
+)
+# p20: "West Germany ... reaching British levels of homes per person by around
+# 1967". True on the smoothed series, which is what Figure 5 plots; on the
+# stated series it happens in 1963. A check that the right series is in use.
+de_cross <- west %>%
+  left_join(west %>% filter(Country == "Unitedkingdom") %>%
+              select(Year, uk = PerCapHouseSmooth), by = "Year") %>%
+  filter(Country == "Germany", Year %in% POSTWAR) %>%
+  mutate(rel = 100 * PerCapHouseSmooth / uk)
+de_cross_year <- min(de_cross$Year[de_cross$rel >= 100], na.rm = TRUE)
+message("  p20  West Germany reaches UK homes per person in ", de_cross_year, "  (pub 'around 1967')")
+stopifnot("Figure 5 series is wrong -- West Germany should cross around 1967" =
+            de_cross_year >= 1966 && de_cross_year <= 1969)
+
+message("  Report text statistics reproduce.")
+
+# ---- Figures ---------------------------------------------------------------
+# House style is not reproduced -- the Centre for Cities palette and fonts are
+# brand assets and are not in this archive. The data and geometry are.
+
+theme_report <- theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold"),
+        legend.title = element_blank())
+
+nice <- function(x) recode(x, Unitedkingdom = "United Kingdom", Germany = "West Germany")
+
+save_fig <- function(plot, name, w = 8, h = 5) {
+  if (!SAVE_FIGURES) return(invisible())
+  ggsave(file.path(OUT_DIR, paste0(name, ".png")), plot, width = w, height = h, dpi = 200)
+}
+
+# Figure 2 -- average annual gross housebuilding 1955-1979, split by tenure
+fig2_data <- pw %>%
+  group_by(Country) %>%
+  summarise(Private = mean(Private, na.rm = TRUE),
+            Public  = mean(Public,  na.rm = TRUE), .groups = "drop") %>%
+  mutate(Total = Private + Public, Country = nice(Country)) %>%
+  pivot_longer(c(Private, Public), names_to = "Tenure", values_to = "Rate")
+
+fig2 <- ggplot(fig2_data, aes(reorder(Country, Total), Rate, fill = Tenure)) +
+  geom_col() + coord_flip() +
+  labs(title = "Figure 2: Britain built much less than other European countries in the post-war era",
+       subtitle = "Average annual gross housebuilding as a share of housing stock (%), 1955 to 1979",
+       x = NULL, y = NULL) + theme_report
+save_fig(fig2, "Figure 02 - gross housebuilding 1955-1979")
+
+# Figure 3 -- the Netherlands and Sweden against the UK, by tenure
+fig3 <- west %>%
+  filter(Country %in% c("Netherlands", "Sweden", "Unitedkingdom"), Year %in% POSTWAR) %>%
+  mutate(Country = nice(Country)) %>%
+  select(Country, Year, Private, Public) %>%
+  pivot_longer(c(Private, Public), names_to = "Tenure", values_to = "Rate") %>%
+  ggplot(aes(Year, Rate, colour = Country)) +
+  geom_line(linewidth = 0.8) + facet_wrap(~ Tenure) +
+  labs(title = "Figure 3: The Netherlands and Sweden show that postwar Britain could have built more",
+       subtitle = "Annual housebuilding as a share of housing stock (%)", x = NULL, y = NULL) +
+  theme_report
+save_fig(fig3, "Figure 03 - Netherlands Sweden UK by tenure")
+
+# Figure 4 -- change in homes per person, 1955 to 1979
+fig4 <- percap_change %>%
+  mutate(Country = nice(Country)) %>%
+  ggplot(aes(reorder(Country, pct_change), pct_change)) +
+  geom_col(fill = "steelblue4") + coord_flip() +
+  labs(title = "Figure 4: Post-war Britain's increase in homes per person was low",
+       subtitle = "Change in dwellings per 1,000 people, 1955 to 1979 (%)", x = NULL, y = NULL) +
+  theme_report
+save_fig(fig4, "Figure 04 - change in homes per person")
+
+# Figure 5 -- homes per person relative to the UK, 1955-1979 (UK = 100)
+# Figures 5 and 12 plot a level relative to the UK, so both use the smoothed
+# series. Reproducing them from the stated series moves West Germany's crossing
+# point by four years.
+uk_percap <- west %>% filter(Country == "Unitedkingdom") %>%
+  select(Year, uk = PerCapHouseSmooth)
+
+rel_percap <- west %>%
+  left_join(uk_percap, by = "Year") %>%
+  mutate(rel = 100 * PerCapHouseSmooth / uk, Country = nice(Country))
+
+fig5 <- rel_percap %>%
+  filter(Year %in% POSTWAR,
+         Country %in% c("Sweden", "Denmark", "Switzerland", "Finland",
+                        "West Germany", "Netherlands")) %>%
+  ggplot(aes(Year, rel, colour = Country)) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = 100) +
+  annotate("text", x = 1957, y = 101.5, label = "UK = 100", size = 3) +
+  labs(title = "Figure 5: The UK saw relative decline in housing outcomes over the post-war period",
+       subtitle = "Ratio of homes per person relative to the UK, 1955 to 1979", x = NULL, y = NULL) +
+  theme_report
+save_fig(fig5, "Figure 05 - homes per person relative to UK")
+
+# Figure 7 -- public housebuilding, UK against the European average
+euro_public <- west %>%
+  filter(Country != "Unitedkingdom") %>%
+  group_by(Year) %>% summarise(Public = mean(Public, na.rm = TRUE), .groups = "drop") %>%
+  mutate(Country = "Western European average")
+
+fig7 <- west %>%
+  filter(Country == "Unitedkingdom") %>%
+  transmute(Year, Public, Country = "United Kingdom") %>%
+  bind_rows(euro_public) %>%
+  filter(Year >= 1948, Year <= 2015) %>%
+  ggplot(aes(Year, Public, colour = Country)) +
+  geom_line(linewidth = 0.8) +
+  labs(title = "Figure 7: From the 1970s onwards, public housebuilding fell across Europe",
+       subtitle = "Annual public housebuilding as a share of housing stock (%)", x = NULL, y = NULL) +
+  theme_report
+save_fig(fig7, "Figure 07 - public housebuilding UK vs Europe")
+
+# Figure 8 -- Swiss private building against total British building
+fig8 <- west %>%
+  filter(Year %in% POSTWAR) %>%
+  filter((Country == "Switzerland") | (Country == "Unitedkingdom")) %>%
+  transmute(Year,
+            Series = if_else(Country == "Switzerland",
+                             "Switzerland, private only", "United Kingdom, private and public"),
+            Rate = if_else(Country == "Switzerland", Private, Total)) %>%
+  ggplot(aes(Year, Rate, colour = Series)) +
+  geom_line(linewidth = 0.8) +
+  labs(title = "Figure 8: Switzerland built more private homes than Britain built in total",
+       subtitle = "Annual housebuilding as a share of housing stock (%)", x = NULL, y = NULL) +
+  theme_report
+save_fig(fig8, "Figure 08 - Switzerland private vs UK total")
+
+# Figure 10 -- 1980-2015 rates, showing the fall from the post-war era.
+# The published chart uses hatched fills via ggpattern for the "reduction"
+# segments. ggpattern is optional here so the script still runs without it.
+fig10_data <- west %>%
+  filter(Year %in% c(POSTWAR, MODERN)) %>%
+  mutate(era = if_else(Year %in% POSTWAR, "postwar", "modern")) %>%
+  group_by(Country, era) %>%
+  summarise(Private = mean(Private, na.rm = TRUE),
+            Public  = mean(Public,  na.rm = TRUE), .groups = "drop") %>%
+  pivot_longer(c(Private, Public), names_to = "Tenure", values_to = "Rate") %>%
+  pivot_wider(names_from = era, values_from = Rate) %>%
+  mutate(reduction = pmax(postwar - modern, 0),
+         Country = nice(Country)) %>%
+  select(Country, Tenure, `Post 1980` = modern, `Reduction since 1955-79` = reduction) %>%
+  pivot_longer(-c(Country, Tenure), names_to = "Segment", values_to = "Rate") %>%
+  mutate(Fill = paste(Segment, Tenure, sep = ", "))
+
+ordering <- fig10_data %>% group_by(Country) %>% summarise(t = sum(Rate)) %>% arrange(t)
+
+fig10 <- fig10_data %>%
+  mutate(Country = factor(Country, levels = ordering$Country)) %>%
+  ggplot(aes(Country, Rate, fill = Fill)) +
+  geom_col() + coord_flip() +
+  labs(title = "Figure 10: Housebuilding rates fell across nearly all European countries",
+       subtitle = "Average annual gross housebuilding as a share of housing stock (%), 1980 to 2015,\nwith the reduction since 1955-79 shown above it",
+       x = NULL, y = NULL) + theme_report
+save_fig(fig10, "Figure 10 - housebuilding 1980-2015 with reduction")
+
+# Figure 11 -- Ireland's homes per person
+fig11 <- west %>%
+  filter(Country == "Ireland", Year >= 1955) %>%
+  ggplot(aes(Year, PerCapHouseSmooth)) +
+  geom_line(linewidth = 0.8, colour = "seagreen4") +
+  labs(title = "Figure 11: Ireland's ratio of homes per person has always been low",
+       subtitle = "Dwellings per 1,000 people", x = NULL, y = NULL) + theme_report
+save_fig(fig11, "Figure 11 - Ireland homes per person")
+
+# Figure 12 -- homes per person relative to the UK, modern era
+fig12 <- rel_percap %>%
+  filter(Year >= 1980, Year <= 2015, Country != "United Kingdom") %>%
+  ggplot(aes(Year, rel, colour = Country)) +
+  geom_line(linewidth = 0.7) +
+  geom_hline(yintercept = 100) +
+  labs(title = "Figure 12: Some European countries are no longer seeing outcomes improve relative to Britain",
+       subtitle = "Ratio of homes per person relative to the UK, 1980 to 2015", x = NULL, y = NULL) +
+  theme_report
+save_fig(fig12, "Figure 12 - homes per person relative to UK, modern")
+
+# ---- Outputs ---------------------------------------------------------------
+
+write_csv(table2,      file.path(OUT_DIR, "Table 2 - private housebuilding 1955-1979.csv"))
+write_csv(stock_check, file.path(OUT_DIR, "Stock estimate rebuild check.csv"))
+write_csv(panel,       file.path(OUT_DIR, "Summary panel.csv"))
+
+message("\nWrote tables and ", if (SAVE_FIGURES) "9 figures" else "no figures", " to:\n  ", OUT_DIR)
