@@ -417,10 +417,14 @@ why its totals match published Table 3 and its private/public split does not.
 
 It also has an **Interpolation** section, which should independently document §6.
 
-The equations are images in the PDF and do not extract as text. **A LaTeX edition with every equation
-typeset is at `docs/methodology.tex`** (10 Sep 2026) -- read that rather than the PDF. Maths and worked
-examples are as published; only prose slips were corrected. Checking the tenure step against it is
-not yet done.
+The equations are images in the PDF and do not extract as text. **`docs/methodology.tex` is a
+corrected edition** (10 Sep 2026) -- read that rather than the PDF. Its equations and worked figures
+were rewritten to match `Counterfactual Replication.R` and the stock rebuild in `Summary Replication.R`;
+the Stage 7 formulas reproduce all 13 rows of `Export3.csv`. The published annex had a wrong Stage 4
+demolition formula, wrong worked inputs, and a tenure split that is not the code's; the .tex's final
+section lists every change. **Published Table 3's UK split (7,875,000 / 4,358,000) is total demolitions
+split by the cumulative gross private share** (`BritRef` in the 2022 working code), not the year-by-year
+split this script uses. The published country rows are not yet reconciled.
 
 
 ## 10. Hazards
