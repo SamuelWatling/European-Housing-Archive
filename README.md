@@ -56,7 +56,5 @@ Nationwide house price index and the Bank of England's millennium dataset.
 
 ## Also
 
-- [`European-Housing-Working-Code`](../European-Housing-Working-Code) — the thirteen 2022 build
-  scripts. They cannot run, and are kept as documentation of method.
 - `CLAUDE.md` — the full audit: column dictionaries, where each estimate comes from, what is
   open, and the traps.
