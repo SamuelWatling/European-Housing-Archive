@@ -9,11 +9,12 @@
 #
 # WHY THIS EXISTS IN THIS FORM
 # ----------------------------
-# The 2022 working code (Project R Code/) is not runnable and will not be: it
-# reads 60 distinct input files of which 54 no longer exist, and it points at
-# eight working directories on a Centre for Cities account that is gone. Those
-# scripts are now documentation of method, not code. Everything here is
-# therefore derived from the published workbook alone, so it runs anywhere.
+# The 2022 working code (the European-Housing-Working-Code repo) is not
+# runnable and will not be: it reads 60 distinct input files of which 54 no
+# longer exist, and it points at eight working directories on a Centre for
+# Cities account that is gone. Those scripts are now documentation of method,
+# not code. Everything here is therefore derived from the published workbook
+# alone, so it runs anywhere.
 #
 # WHAT IS DIFFERENT FROM THE ORIGINAL
 # -----------------------------------
@@ -139,8 +140,9 @@ STOCK_EXCLUSIONS <- tibble::tribble(
 #   Adjhaus    fallback for countries/years where no reported figure anchors the
 #              series, e.g. before the first observation
 #
-# Faithful to `Project R Code/90s Data Cleaning.R` lines 292-317, which is where
-# this originally lived and which is the only reason it can be recovered at all.
+# Faithful to `90s Data Cleaning.R` lines 292-317 (working-code commit c3bebd6;
+# now `2 European panel.R` lines 325-350), which is where this originally lived
+# and which is the only reason it can be recovered at all.
 
 stock <- raw %>%
   # Drop the excluded observations BEFORE the roll-forward, so they anchor
@@ -659,7 +661,8 @@ save_fig(fig1, "Figure 01 - England and Wales housebuilding 1856-2019", w = 9)
 #   UK_House_Price_Since_1952.csv -> UK_house_price_since_1952.xlsx (Nationwide)
 #   Wage Price Data.csv           -> Quarterly Index.csv (Bank of England
 #                                    "Q1. Quarterly Headline Series")
-# The transform is from Domestic Britain Code.R lines 385-400: deflate both by
+# The transform is from Domestic Britain Code.R lines 385-400 (working-code
+# commit c3bebd6; now `5 England and Wales.R` lines 422-437): deflate both by
 # CPI, index each to 1960 Q1, take log10. The script's constants 6.57 and 0.925
 # are the 1960 Q1 CPI and the deflated 1960 Q1 earnings -- which is how the two
 # files were identified.

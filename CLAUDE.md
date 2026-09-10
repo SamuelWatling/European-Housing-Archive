@@ -15,10 +15,10 @@ unrunnable and is best read as documentation.
 |---|---|
 | `Counterfactual Replication.R` | **Runs.** Reproduces published Table 3 totals exactly |
 | `Summary Replication.R` | **New, 10 Sep 2026.** Runs. Reproduces Table 2 and the report's quoted statistics |
-| `European-Housing-Working-Code` (13 scripts) | **Cannot run and never will** — 54 of 60 input files are gone |
+| `European-Housing-Working-Code` (6 theme files, from 13 scripts) | **Cannot run and never will** — 54 of 60 input files are gone |
 | Published tenure split (Table 3) | **Narrowed to one step, not yet closed** — §7 |
 | Historic England & Wales data | **Found 10 Sep 2026** in `Documents/Historical English Statistics` — §9 |
-| `Project R Code/` in version control | **No.** 13 scripts, untracked, one copy on one disk — §10.6 |
+| 2022 working code in version control | **Yes.** Committed as `c3bebd6` in `European-Housing-Working-Code`, then grouped by theme — §10.6 |
 
 The two replication scripts at the repo root are the whole live surface. Everything else is
 provenance.
@@ -182,7 +182,8 @@ The reported stock is sparse. The estimate fills the gaps by rolling the stock f
 completions and distributing the residual drift across each gap, so the series passes exactly
 through every reported observation.
 
-**The only surviving record of this is `Project R Code/90s Data Cleaning.R` lines 292-317.** If
+**The only surviving record of this is `90s Data Cleaning.R` lines 292-317** (working-code commit
+`c3bebd6`; now `2 European panel.R` lines 325-350). If
 that file is ever lost, the provenance of the denominator of every rate in the report goes with it.
 It is now also reimplemented, with commentary, in `Summary Replication.R`.
 
@@ -327,7 +328,8 @@ Both inputs to Figure 9 exist, under different names, in
 | `UK_House_Price_Since_1952.csv` | `UK_house_price_since_1952.xlsx` — Nationwide UK HPI, quarterly from 1952 Q4, All / New / Modern / Older houses, index + price + annual change |
 | `Wage Price Data.csv` | `Quarterly Index.csv` — the Bank of England "Q1. Quarterly Headline Series" sheet, exported. Year in column 1, quarter in column 2, then a Wages and Prices block containing the spliced CPI and the **spliced Average Weekly Earnings series, 1919-2015** |
 
-**The identification is certain, not a guess.** `Domestic Britain Code.R` lines 385-397 divide
+**The identification is certain, not a guess.** `Domestic Britain Code.R` lines 385-397 (working-code
+commit `c3bebd6`; now `5 England and Wales.R` lines 422-434) divide
 `CPI Index` by **6.57** and `Earnings` by **0.925**; the 1960 Q1 row of `Quarterly Index.csv` reads
 `... 6.57 ... 9.25 ...` in exactly those columns. They are 1960 Q1 rebasings, which is what the
 chart's "Log of Real 1960 Values = 1" axis means.
@@ -439,21 +441,20 @@ reading those pages as pages. Not yet done.
 5. **`Combined.csv` and `CompleteData1958-1991.csv` also exist under
    `Dropbox\English Housing Article\Data` and `Dropbox\Works in Progress\Data`.** More copies, more
    chances to diverge.
-6. **`Project R Code/` IS NOT IN GIT.** Only three files are tracked:
-   `Counterfactual Replication.R`, `README.md` and `Replication Data full.xlsx`. All 14 working
-   scripts are untracked and have never been committed — including `90s Data Cleaning.R`,
-   **the sole surviving record of how the stock estimate is built** (§6). They exist in exactly one
-   place, on one disk. Commit them.
+6. ~~**`Project R Code/` IS NOT IN GIT.**~~ **Resolved 10 Sep 2026.** The working scripts are
+   committed as `c3bebd6` in `European-Housing-Working-Code`, then grouped verbatim into six theme
+   files. `c3bebd6` keeps the thirteen originals, so line citations to them stay valid.
 
 ---
 
 ## 11. What is lost
 
-**54 of the 60 input files the 2022 scripts reference no longer exist.** The six survivors are
-`Combined.csv`, `CompleteData1958-1991.csv`, `1950HouseDataIV.csv`, `1950HouseDataV.csv`,
-`1950s Tenure Data.csv` and `Complete West Capital Formation.csv`.
+**54 of the 60 input files the 2022 scripts reference no longer exist.** Rechecked 10 Sep 2026
+against every CSV and Excel file in Dropbox, by name plus a keyword search for renamed copies. The
+six survivors are `Combined.csv`, `CompleteData1958-1991.csv`, `1950HouseDataIV.csv`,
+`1950HouseDataV.csv`, `1950s Tenure Data.csv` and `Complete West Capital Formation.csv`.
 
-The 13 scripts in `Project R Code/` therefore cannot run and cannot be made to. They also point at
+The 2022 working scripts therefore cannot run and cannot be made to. They also point at
 eight working directories under `C:/Users/S.Watling/`, a Centre for Cities account that is gone.
 **Read them as documentation of method** — which is exactly how §6 was recovered.
 
