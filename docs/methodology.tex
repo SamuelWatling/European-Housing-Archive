@@ -1,0 +1,831 @@
+% Methodology: Counterfactuals
+% Technical annex to Watling, S. and Breach, A. (2023), "The housebuilding
+% crisis: The UK's 4 million missing homes", Centre for Cities.
+%
+% A LaTeX edition of the annex published in February 2023, whose equations
+% were set as images. The method, the notation and every worked example are as
+% published. Changes: equations are typeset as mathematics; a summation sign
+% written in front of an already-expanded series is dropped (Part I) or given
+% explicit indices (Part II); obvious slips in the prose are corrected; the
+% publisher's boilerplate page is omitted.
+%
+% Build: latexmk -pdf methodology.tex
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\hypersetup{
+  pdftitle  = {Methodology: Counterfactuals},
+  pdfauthor = {Samuel Watling and Anthony Breach}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+
+% ---- Notation -----------------------------------------------------------------
+\newcommand{\mn}{\,\text{million}}          % 15.4\mn -> 15.4 million
+\newcommand{\Hs}[1]{H_{\text{#1}}}          % actual UK quantities
+\newcommand{\Js}[1]{J_{\text{#1}}}          % counterfactual quantities
+\newcommand{\PC}{\mathit{PC}}               % UK homes per person
+\newcommand{\QK}{\mathit{QK}}               % comparator homes per person
+\newcommand{\priv}{\mathit{Priv}}
+\newcommand{\pub}{\mathit{Pub}}
+
+\title{Methodology: Counterfactuals\\[0.5em]
+  \large\emph{The housebuilding crisis: The UK's 4 million missing homes}}
+\author{Samuel Watling and Anthony Breach\\[0.3em]\normalsize Centre for Cities}
+\date{February 2023}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\small Technical annex to the report, originally published by Centre for Cities,
+\copyright\ Centre for Cities 2023.\\
+This edition sets the equations as mathematics; the method and worked examples
+are unchanged.
+\end{center}
+
+% ==============================================================================
+\section*{Introduction}
+
+In the report \textbf{The housebuilding crisis: The UK's 4 million missing homes},
+housing outcomes are defined as the number of homes per (thousand) people. This is
+a simple metric for general comparisons in housing quality and affordability.
+
+One of the goals of the report was to calculate exactly how much underbuilding had
+taken place in the UK since 1955 compared to other countries, and how this affected
+outcomes in the UK.
+
+Comparisons that simply applied the housebuilding rates of other countries to the
+UK generated unbuilt backlogs that were too large, as other countries in 1955 had
+worse outcomes and higher population growth, and therefore needed to build more.
+
+More reasonable estimates could be produced by calculating the housebuilding
+required to reach the number of homes per person as other European countries in
+2015 produced, but these were still unsatisfactory, for two reasons.
+
+First, investigating differences in housebuilding by tenure was not possible with
+this method, despite being a key aspect of the report.
+
+And second, inconsistencies in the data between countries make it difficult to
+draw comparisons based on the number of dwellings recorded in 2015. Both the UK,
+and wherever possible the UN data, record the total housing stock until 2000.
+However, the statistical agencies of many other countries today only record primary
+residences, and omit second homes and vacant stock. Therefore, using the publicly
+available 2015 dwellings per person ratios from national statistics agencies to
+estimate UK underbuilding from 1955 generates underestimates and inconsistent
+results between countries.
+
+To solve this, Centre for Cities used a new method that combined both approaches.
+The report's estimates of the total amount of underbuilding in the UK from 1955 to
+2015 relative to other countries use the difference between the number of homes
+per person that the UK would have if Britain had built at the rate of another
+country. This is controlling for the difference in the size of initial stock of
+homes per person and different population growth rates.
+
+The underlying formula required to produce estimates of the change in the number of
+homes per person every year (and therefore from 1955 to 2015) is:
+\[
+  \frac{\text{Previous Year's Housing Stock} + \text{Annual Net Additions}}
+       {\text{Annual Change in Population}}
+\]
+with
+\[
+  \text{Annual Net Additions} = \text{Annual Houses Built} - \text{Annual Houses Demolished}.
+\]
+
+This formula is used twice to create the estimate of underbuilding -- first, to
+create the estimate of actual British net additions every year, and then again to
+produce an estimate of net additions for each ``counterfactual'' version of the UK
+which is adjusted for each country comparison (e.g.\ the Netherlands). The
+difference in final values between the actual British and each country's
+counterfactual British values that this produces is the estimate of the amount of
+housebuilding that would have taken place in the UK had it followed the housing
+policy approach of each country.
+
+The first part of this methodology explains how the formula is calculated, which is
+applied without adjustments to the British data to create estimates on how many
+homes were added by the private and public sectors from 1955 to 2015. The second
+part explains how the formula is then adjusted for each counterfactual.
+
+% ==============================================================================
+\section*{Part I -- Calculating the actual British values}
+
+Four steps are required to calculate the formula:
+\begin{enumerate}
+  \item The housing stock for each year from 1955 to 2015.
+  \item The net change in housing stock between 1955 and 2015.
+  \item The gross total number of new homes built and demolished by tenure from
+        1955 to 2015.
+  \item The net change in housing stock by tenure from 1955 to 2015.
+\end{enumerate}
+
+The end estimates will not be identical to the values defined as national
+statistics, but the approach is being used to maintain consistency between the
+method used to generate the baseline UK values and the counterfactuals. The
+discrepancies between the official estimates are small and within reasonable
+margins of error (${\sim}2.3$ per cent difference with the official statistic for
+the end 2015 estimate, for example).
+
+\subsection*{Stage 1: The housing stock for each year from 1955 to 2015}
+
+Written in mathematical notation, the initial UK housing stock in 1955 is $H_0$. In
+each year $t$ after 1955, the British building and demolition rates are $b_t$ and
+$d_t$ respectively. This produces the estimates for the years 1955, 1956 and 1957:
+\begin{gather*}
+  H_0\\
+  H_0 + H_0 \times (b_1 - d_1)\\
+  \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr)
+    + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) \times (b_2 - d_2)
+\end{gather*}
+This expression can be factorized:
+\begin{gather*}
+  H_0\\
+  H_0\bigl(1 + (b_1 - d_1)\bigr)\\
+  H_0\bigl(1 + (b_1 - d_1)\bigr) + H_0\bigl(1 + (b_1 - d_1)\bigr) \times (b_2 - d_2)
+\end{gather*}
+In the case of the UK,
+\[
+  H_0 = 15.4\mn, \qquad b_1 = 1.8\%, \qquad d_1 = 0.36\%, \qquad
+  b_2 = 1.6\%, \qquad d_2 = 0.41\%,
+\]
+which gives values of 15.4 million, 15.7 million and 15.9 million for the beginnings
+of the years 1955, 1956 and 1957 respectively. This process is continued until 2015,
+and allows us to generate estimates for the number of homes per person every year.
+
+\subsection*{Stage 2: The net change in housing stock between 1955 and 2015}
+
+The net change in housing stock from 1955 to 2015 can be calculated as the
+difference between the initial year (1955) and the final year (2015).
+Mathematically:
+\begin{align*}
+  \Hs{Final}  &= H_0 + H_0(b_1 - d_1)
+                 + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) \times (b_2 - d_2) + \cdots\\
+  \Hs{Change} &= H_0 + H_0(b_1 - d_1)
+                 + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) \times (b_2 - d_2) + \cdots - H_0
+\end{align*}
+When calculating the actual estimate for the UK, the values of $H_0$ cancel out,
+leaving a value of:
+\[
+  \Hs{Change} = H_0(b_1 - d_1) + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr)(b_2 - d_2) + \cdots
+\]
+In the case of the UK, the values for the final amount of housing in 2015 and the
+net change in stock from 1955 to 2015 are:
+\begin{align*}
+  \Hs{Final}  &= 27.7\mn\\
+  \Hs{Change} &= 12.3\mn
+\end{align*}
+
+\subsection*{Stage 3: Calculation of gross housebuilding and gross demolitions}
+
+The net change in total dwellings is not enough if we want to generate estimates for
+additions by tenure. Gross housebuilding and gross demolitions are required for
+this, and summed together they will equal the net change in dwellings.
+
+Total gross housebuilding in the UK is the build rate in each year multiplied by the
+housing stock in each year from 1955 to 2015, represented mathematically:
+\[
+  H_0 b_1 + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) b_2 + \cdots
+\]
+The gross number of new homes that are built differs from the net change in the
+number of homes, as demolitions are omitted from the gross. The gross number of
+demolitions from 1955 to 2015 takes the similar equation:
+\[
+  H_0 d_1 + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) d_2 + \cdots
+\]
+As the net change in stock must equal the total gross housebuilding minus the total
+gross demolitions, the results can be checked according to this formula:
+\begin{multline*}
+  \Bigl[H_0 b_1 + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) b_2 + \cdots\Bigr]\\
+  - \Bigl[H_0 d_1 + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) d_2 + \cdots\Bigr]
+  = \Hs{Change}
+\end{multline*}
+For the UK:
+\begin{align*}
+  H_0 b_1 + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) b_2 + \cdots &= 15.5\mn\\
+  H_0 d_1 + \bigl(H_0 + H_0 \times (b_1 - d_1)\bigr) d_2 + \cdots &= 3.2\mn
+\end{align*}
+Therefore $\Hs{Change} = 15.5\mn - 3.2\mn = 12.3\mn$, matching the results in
+Stage~2.
+
+\subsection*{Stage 4: Calculation of net change by tenure}
+
+However, to split net change in stock by tenure requires further assumptions for
+demolitions (and population growth for the counterfactuals). We have assumed that
+demolitions (and population growth) were allocated each year to \textbf{the same
+tenure proportion as the houses that were built in each year} and adjusted the net
+additions by tenure accordingly.
+
+British data is available from 1955 to 2015 for gross housebuilding by tenure and
+gross demolitions, but not the necessary data to measure demolitions by tenure.
+Although for the latter part of the period some data does exist on demolitions by
+tenure of final occupier for England, data does not exist on demolitions by tenure
+of \emph{construction}. As this report is concerned with the contribution of the
+private and public sector to total net additions of stock, it is the latter we are
+interested in.
+
+To take an example -- consider a local authority which built ten council houses,
+and four of them were sold to tenants under Right to Buy. One remaining council
+tenancy property and a Right to Buy property were both then demolished. The net
+change in tenure by occupation is an additional five council dwellings and three
+homeowner dwellings. But when considering the net change by construction, the
+public sector added eight dwellings, despite Right to Buy and the demolition of an
+owner-occupied dwelling.
+
+As data on demolitions by tenure is tracked by final occupier, not by construction,
+this presents a problem for the methodology. Former council homes sold under Right
+to Buy and former private properties sold to Registered Providers will have their
+demolitions recorded incorrectly. The report must make an assumption about
+demolitions for the entire period.
+
+Demolitions were higher in the postwar period (specifically the 1960s) and
+concentrated on private sector stock in slum clearances. Demolitions since 1980
+were lower over a longer time period, and primarily were of social housing and
+private properties often built by the public sector (e.g.\ leaseholders on council
+estate regenerations).
+
+By allocating each year's demolitions by tenure to the tenure mix of gross
+housebuilding for each year, we can assume that two thirds of all demolitions of
+properties from 1955 to 2015 were of private-built properties, and a third were of
+public-built properties, a reasonable estimation of the pattern described in the
+preceding paragraph. The individual results in each year are skewed, but the
+cumulative results for total underbuilding from 1955 to 2015 are satisfactory.
+
+Denote the tenure mix of the build rate in year $t$ as $\theta_t^{\priv}$ for
+private and $\theta_t^{\pub}$ for public building. Therefore, cumulative total gross
+building will be:
+\begin{multline*}
+  H_0\bigl(b_1\theta_1^{\priv} + b_1\theta_1^{\pub}\bigr)\\
+  + \bigl(H_0 + H_0(b_1\theta_1^{\priv} + b_1\theta_1^{\pub} - d_1)\bigr)
+    \bigl(b_2\theta_2^{\priv} + b_2\theta_2^{\pub}\bigr) + \cdots
+\end{multline*}
+which, as $\theta_t^{\priv} + \theta_t^{\pub} = 1$, can be rewritten as:
+\[
+  H_0\bigl(b_1\theta_1^{\priv} + b_1\theta_1^{\pub}\bigr)
+  + \bigl(H_0 + H_0(b_1 - d_1)\bigr)\bigl(b_2\theta_2^{\priv} + b_2\theta_2^{\pub}\bigr)
+  + \cdots
+\]
+and then can be split by tenure into two separate tenure-specific equations:
+\begin{gather*}
+  H_0 b_1\theta_1^{\priv} + \bigl(H_0 + H_0(b_1 - d_1)\bigr) b_2\theta_2^{\priv} + \cdots\\
+  H_0 b_1\theta_1^{\pub}  + \bigl(H_0 + H_0(b_1 - d_1)\bigr) b_2\theta_2^{\pub}  + \cdots
+\end{gather*}
+From the identity equation, we can arrange these with the gross demolition rate to
+achieve the net increase in dwellings by tenure from 1955 to 2015.
+
+In the case of the UK, from 1955 to 2015:
+\begin{align*}
+  \Hs{Private Building}    &= 10\mn,  & \Hs{Public Building}    &= 5.5\mn,\\
+  \Hs{Private Demolitions} &= 1.9\mn, & \Hs{Public Demolitions} &= 1.3\mn.
+\end{align*}
+Therefore, we can calculate the change in each tenure over the period:
+\begin{align*}
+  \Hs{Private Building} - \Hs{Private Demolitions} &= 8.1\mn\\
+  \Hs{Public Building}  - \Hs{Public Demolitions}  &= 4.2\mn
+\end{align*}
+This total of private and public additions in the UK from 1955 to 2015 therefore
+equals
+\[
+  \Hs{Change} = 12.3\mn,
+\]
+matching the results in Stages 2 and 3.
+
+% ==============================================================================
+\section*{Part II -- Calculating counterfactual values\\ for British housebuilding}
+
+Having calculated the required figures for Britain, we now move to the method used
+to make credible adjustments for other countries.
+
+The central estimate we are making is \textbf{how many extra houses the UK would have
+today if it had added homes at the rate required to reach the same number of homes
+per person as a Western European country in 2015.} As accurate values for the net
+change in housing stocks both in general and by tenure are not available, this is
+calculated using each country's gross additions and UK demolitions.
+
+However, simply repeating the British method for another country -- calculating how
+many extra homes we would have if we had built and demolished housing at the same
+rate as other countries -- will not produce a credible result for their stock of
+homes per person in 2015. This is because:
+
+\textbf{Other countries have different population growth rates compared to
+Britain.} If the population growth rate is different to the UK's, then the same
+gross increase will not produce the same change in the number of homes per person.
+As all countries except Austria and Belgium had higher population growth than the
+UK, adjusting for this makes the average estimate more conservative.
+
+\textbf{Other countries began the period with a different per person stock of homes
+compared to Britain.} The average western European country began the period with a
+smaller stock of homes per person than the UK, which means some of their
+housebuilding after 1955 will have been to catch up to a housing stock that the UK
+had already built before 1955. Adjusting for this also makes the estimate more
+conservative.
+
+Therefore, these effects need to be controlled for when calculating the
+counterfactual value of the United Kingdom, so that it has:
+\begin{itemize}
+  \item the same initial housing stock to population ratio as the counterfactual
+        country;
+  \item the same population growth rate as the counterfactual country.
+\end{itemize}
+
+\subsection*{Methodology}
+
+Recall the equation for changes in the number of homes per person:
+\[
+  \frac{\text{Previous Housing Stock} + \text{Net Additions}}{\text{Change in Population}}
+\]
+with
+\[
+  \text{Annual Net Additions} = \text{Annual Houses Built} - \text{Annual Houses Demolished}.
+\]
+
+Therefore, to estimate how many homes a counterfactual version of the UK that had
+adopted the housebuilding policy approach of another country (e.g.\ the Netherlands)
+in every year from 1955 to 2015 would have, the following adjustments need to be
+made to the British formula in Part~I to generate an estimate of the change in the
+ratio of homes per person for each counterfactual version of Britain:
+\begin{enumerate}
+  \item The initial stock of homes in 1955, based upon the ratio of homes per person
+        of the comparator country.
+  \item The rate of population growth for each year between 1955 and 2015, based on
+        the difference in growth rates between the `real-life' UK and the
+        counterfactual country.
+  \item The British rate of demolitions in every year from 1955 to 2015, adjusted to
+        the difference in the ratios of homes per person between the `real-life' UK
+        and the comparator country.
+\end{enumerate}
+
+We then use the counterfactual's annual housing stock to perform the same tenure
+calculation as the British estimate in Part~I, namely:
+\begin{enumerate}[resume]
+  \item Obtaining the additional number of homes implied if Britain had had
+        \textbf{both} the same initial per person housing stock of a European country
+        in 1955 and had increased its stock of homes per person by the same value
+        from 1955 to 2015. This value is also subdivided by tenure.
+  \item Adjusting for the effects of differing changes in population each year
+        between the European country and Britain.
+\end{enumerate}
+
+This then allows the computation of the final value for the counterfactual, using
+the same method as in Part~I. This is comprised of the counterfactual UK's total
+additions to its initial adjusted housing stock. This allows us to calculate the
+estimate of how many homes the UK would have had if it had added homes at the rate
+of the comparator country the counterfactual is based on, with:
+\begin{enumerate}[resume]
+  \item The difference between the estimated final housing stock values of the
+        counterfactual country and Britain. This is then broken down by tenure.
+\end{enumerate}
+
+\subsection*{Stage 1: Adjust the counterfactual's initial stock of homes per person}
+
+The value for the British housing stock in 1955 is taken and then \textbf{multiplied
+by the ratio of stock of homes per person between the UK and the counterfactual
+country in 1955.}
+
+Shown mathematically, designate the housing stock per person of Britain at time $t$,
+with a housing stock $H_t$ and population $P_t$, as $\PC_t$; and the housing stock
+per person of the comparator country, with housing stock $J_t$ and population $Q_t$,
+as $\QK_t$, such that:
+\[
+  \PC_t = \frac{H_t}{P_t} \qquad\text{and}\qquad \QK_t = \frac{J_t}{Q_t}.
+\]
+This leads to the initial adjustment to the counterfactual's housing stock, which is
+denoted $\sigma_0$:
+\[
+  \sigma_0 = H_0 \frac{\QK_0}{\PC_0}
+\]
+
+For our example country we will use the Netherlands. In 1955 the Netherlands had
+234 dwellings per 1000 people, while the UK had 302 dwellings per 1000 people.
+
+Recall that Britain's housing stock in 1955 was 15.4 million. So, the adjusted
+initial housing stock value for the counterfactual UK based upon the Netherlands
+becomes:
+\[
+  \sigma_{\text{Neth}} = 15.4\mn \times \frac{234}{302} = 12\mn
+\]
+
+\subsection*{Stage 2: Calculate net change in stock for the counterfactual UK}
+
+The overall adjusted counterfactual format for another European country takes this
+country's yearly gross build rate $c_t$ and calculates the raw number of additions to
+the UK by multiplying this rate by a pre-adjusted housing stock.
+
+Denote $c_t$ as the counterfactual country's building rate and $D_t$ as the
+demolition rate in year $t$. The exact value of the demolition rate is discussed in
+more detail in Stage~4. The resulting formula that calculates the net change in stock
+in the first year before adjustments is:
+\[
+  \sigma_0 + \sigma_0 (c_t - D_t)
+\]
+
+\subsection*{Stage 3: Adjust net change in stock for population growth}
+
+Population growth differs between countries every year. This means that an
+identical increase in the overall housing stock will not result in an identical
+increase in the stock of homes per person. Places with lower population growth do not
+need to build as many homes to achieve the same improvements to housing outcomes.
+
+As Britain's population growth is lower than most of Europe in this period, this
+will exaggerate the difference in homes added in the counterfactual if not
+controlled for. Therefore, the change in population relative to Britain is updated
+every year and applied to the housing stock.
+
+Denote the change in Britain's population:
+\[
+  \Delta P_t = 1 + \frac{P_t - P_{t-1}}{P_{t-1}}
+\]
+and the change in a European country's population:
+\[
+  \Delta Q_t = 1 + \frac{Q_t - Q_{t-1}}{Q_{t-1}}
+\]
+For the first year's net change in stock, the population growth adjustment is
+therefore:
+\[
+  \bigl(\sigma_0 + \sigma_0 (c_1 - D_1)\bigr) \times \frac{\Delta P_1}{\Delta Q_1}
+\]
+
+The Netherlands counterfactual experiences a significantly higher rate of population
+growth than the UK in this period; for example, the value of
+$\Delta P_1 / \Delta Q_1 = 1/1.02$. Therefore, in every year the number of houses
+built in the counterfactual UK based upon the Netherlands is decreased according to
+this formula.
+
+Also note that in the British case $\Delta P_t / \Delta Q_t$ equals 1 by definition,
+and does not alter the value of the British counterfactual base used as the
+comparison.
+
+\subsection*{Stage 4: Adjust demolition rates for population growth}
+
+Accurate and consistent demolition data does not exist for European countries apart
+from Switzerland.
+
+For all other countries, the demolition data is assumed through a two-step process.
+
+Initially, given that this is a model of Britain's housing, the demolition rates are
+assumed to be identical to Britain's, as it is mostly pre-1947 British stock which is
+being demolished. Therefore, the value produced in the first round of adjusted
+estimates is as below, and denoted $\xi_1$:
+\[
+  \xi_1 = \bigl(\sigma_0 + \sigma_0 (c_1 - d_1)\bigr) \times \frac{\Delta P_1}{\Delta Q_1}
+\]
+
+However, the UK's demolition rate needs to be adjusted for two reasons. First, the
+UK's demolitions are concentrated in the 1960s due to a policy choice, with little
+demolition earlier or after that. Applying this to the counterfactual version of the
+UK building at another rate will have an inconsistent effect on the net change in
+dwellings.
+
+Second, as the main target of demolitions was unfit pre-modern housing, it is
+reasonable to assume that demolition rates would initially be in proportion to the
+stock of unfit pre-modern housing. If the UK had had less housing than it actually
+did in 1955, then it likely would have demolished fewer dwellings in the years
+after.
+
+Therefore, a value from the ratio of homes per person relative to Britain is added
+to or subtracted from the counterfactual's demolition rate. Counterfactuals based on
+countries with a ``head-start'' in their ratio over Britain see higher initial
+demolitions, while counterfactuals with less housing see fewer.
+
+In the case of the Netherlands, its stock of homes per person is 23 per cent lower
+than Britain's in 1955. Therefore, 0.23 percentage points is subtracted from the
+British demolition rate to calculate the counterfactual's demolition rate for that
+year. As Britain's demolition rate was 0.36 per cent in 1955, this makes the
+counterfactual demolition rate 0.13 per cent for the year.
+
+The effect of this over time is linear and smooths out demolitions from 1955 to
+2015. As the actual UK has an above-average ratio of homes per person over most
+countries in 1955 and is below-average by 2015, most counterfactual versions of the
+UK have fewer demolitions in the beginning of the period (and the 1960s), when they
+have fewer homes per person than the UK, and more demolitions towards the end of the
+period than the actual UK, when most overtake the UK in terms of homes per person
+and actual UK demolitions dropped to very low levels.
+
+The net result is conservative and reduces the total amount of additional
+housebuilding in the European average for the counterfactual from 4.9 million to
+4.3 million.
+
+Denote by $\nu_t$ the value of the counterfactual housing stock in year $t$.
+Therefore in 1955, at the end of year 1, the housing stock $\nu_1$ is:
+\[
+  \nu_1 = \left(\sigma_0 + \sigma_0 \times
+          \left(c_1 - \left(d_1 - \left(1 - \frac{\xi_1}{\PC_1}\right)\right)\right)\right)
+          \times \frac{\Delta P_1}{\Delta Q_1}
+\]
+For all following expressions, denote
+\[
+  D_t = d_t - \left(1 - \frac{\xi_t}{\PC_t}\right).
+\]
+An exception is made for Switzerland, where the country's demolition data is of high
+enough quality to be directly inputted into the model.
+
+\subsection*{Stage 5: Calculate and adjust the counterfactual additions}
+
+Therefore, given all the above, Part~I is applied to the counterfactual values
+established above as follows. Total gross building for the counterfactual version of
+the UK for each country will be:
+\[
+  \Js{Total Building} = \sum_t c_t \nu_t = c_1 \nu_1 + c_2 \nu_2 + \cdots
+\]
+For the Netherlands counterfactual: $\Js{Total Building} = 23\mn$.
+
+And total demolitions will be:
+\[
+  \Js{Total Demolitions} = \sum_t D_t \nu_t = D_1 \nu_1 + D_2 \nu_2 + \cdots
+\]
+For the Netherlands counterfactual: $\Js{Total Demolitions} = 1.7\mn$.
+
+Therefore, total net additions will be:
+\[
+  \Js{Net Building} = \Js{Total Building} - \Js{Total Demolitions}
+\]
+For the Netherlands counterfactual:
+\[
+  \Js{Net Building} = 23\mn - 1.7\mn = 21.3\mn
+\]
+
+These values are then broken down by tenure in exactly the same method as Part~I. So
+total additions by tenure are as follows.
+
+Net private additions:
+\[
+  \Js{Net Private Building} = \Js{Total Private Building} - \Js{Total Private Demolitions}
+\]
+For the Netherlands counterfactual:
+\[
+  \Js{Net Private Building} = 13.6\mn - 1\mn = 12.6\mn
+\]
+
+Net public additions:
+\[
+  \Js{Net Public Building} = \Js{Total Public Building} - \Js{Total Public Demolitions}
+\]
+For the Netherlands counterfactual:
+\[
+  \Js{Net Public Building} = 9.4\mn - 0.7\mn = 8.7\mn
+\]
+
+\subsection*{Stage 6: Adjust for population effects on gross building and gross demolitions}
+
+In Stage~3 we saw that the impact of population growth upon the net change in stock
+is controlled for by multiplying the change in population ratios between the UK and
+the comparator country. But we have not yet adjusted annual gross building and gross
+demolitions for population growth, which are used to calculate the net change by
+tenure. The sum of gross building and gross demolitions should equal net change in
+stock.
+
+The change in the housing stock between periods one and two is currently:
+\[
+  \nu_2 - \nu_1 = \bigl(\nu_1 + \nu_1 (c_2 - D_2)\bigr) \frac{\Delta P_2}{\Delta Q_2} - \nu_1
+\]
+However, the sum of gross housebuilding and gross demolitions between periods one and
+two will be:
+\[
+  \nu_1 (c_2 - D_2)
+\]
+
+Therefore, there is a discrepancy between the total net change in stock and the sum
+of gross building and gross demolitions due to the population adjustments. Due to
+compounding, this discrepancy runs into millions more homes in the counterfactual
+from 1955 to 2015 -- adjusting for this makes the estimate more conservative.
+
+Denote the discrepancy as $\gamma_t$:
+\[
+  \gamma_1 = \nu_1 \left(1 - \frac{\Delta P_2}{\Delta Q_2}\right) (c_2 - D_2 + 1)
+\]
+Therefore, the sum of these discrepancies will be:
+\[
+  \Js{Population Adjustments} = \sum_t \gamma_t = \gamma_1 + \gamma_2 + \cdots
+\]
+Therefore, the total net additions into a country's housing stock will be:
+\[
+  \Js{Total Additions} = \Js{Net Building} - \Js{Population Adjustments}
+\]
+For the Netherlands counterfactual this is:
+\[
+  18.6\mn = 21.3\mn - 2.7\mn
+\]
+
+\textbf{We then assume that these adjustments occur in the same tenure ratio as the
+total tenure ratio of the net additions to the housing stock.}
+
+We are now able to calculate the number of additions to the housing stock implied by
+the counterfactual.
+
+Therefore, for private additions:
+\[
+  \Js{Private Additions} = \Js{Net Private Building}
+    - \frac{\Js{Private Building}}{\Js{Total Building}} \times \Js{Population Adjustments}
+\]
+For the Netherlands counterfactual this is:
+\[
+  11\mn = 12.6\mn - 0.59 \times 2.7\mn
+\]
+
+And for public additions:
+\[
+  \Js{Public Additions} = \Js{Net Public Building}
+    - \frac{\Js{Public Building}}{\Js{Total Building}} \times \Js{Population Adjustments}
+\]
+For the Netherlands counterfactual this is:
+\[
+  7.6\mn = 8.7\mn - 0.41 \times 2.7\mn
+\]
+
+\subsection*{Stage 7: Adjust for the initial differences in the stock of homes per
+person and compare to the UK}
+
+The aim of the counterfactuals was to produce \textbf{how many extra houses Britain
+would have of each tenure if we had added homes at the net rate to reach the
+estimated current per capita housing stock of another European country.}
+
+This is simply the value obtained by taking the difference between the final (2015)
+values of the stock of homes per person of Britain ($\Hs{Final}$) and the
+counterfactual country ($\Js{Final}$), as the estimate for the counterfactual has
+already adjusted for differences in population growth, demolitions and, importantly,
+the initial difference in homes per person in 1955 in the steps discussed above.
+\[
+  \Js{Final} - \Hs{Final} = \text{Total Surplus}
+\]
+In the case of the Netherlands counterfactual, $\Js{Final} = 30.6\mn$. Therefore:
+\[
+  \text{Total Surplus} = 30.6\mn - 27.7\mn = 2.9\mn
+\]
+
+However, the total surplus is not simply the value that Britain would have if we had
+increased the stock of homes per person by the same gross amount as the
+counterfactual country:
+\[
+  \Js{Total Additions} - \Hs{Total Additions} \neq \text{Total Surplus}
+\]
+This is because we are controlling for convergence, so we need to take into account
+the initial deficit or surplus.
+
+Recall that $\sigma_0$ refers to the initial 1955 housing stock of the
+counterfactual, adjusted for the differences in the ratio of homes per person
+between the actual UK and the comparator country; and that $H_0$ refers to the
+initial 1955 housing stock of the UK. Therefore:
+\begin{align*}
+  \Js{Final} &= \sigma_0 + \Js{Total Additions}\\
+  \Hs{Final} &= H_0 + \Hs{Total Additions}
+\end{align*}
+This means the final estimate of the difference in housebuilding between the UK and
+any counterfactual is:
+\[
+  \bigl(\sigma_0 + \Js{Total Additions}\bigr) - \bigl(H_0 + \Hs{Total Additions}\bigr)
+  = \text{Total Surplus}
+\]
+In the case of the Netherlands, $\sigma_0 = 12\mn$ and
+$\Js{Total Additions} = 18.6\mn$. Therefore:
+\[
+  \Js{Final} = 12\mn + 18.6\mn = 30.6\mn
+\]
+In the case of the United Kingdom, $H_0 = 15.4\mn$ and
+$\Hs{Total Additions} = 12.3\mn$. Therefore:
+\begin{align*}
+  \Hs{Final}           &= 15.4\mn + 12.3\mn = 27.7\mn\\
+  \text{Total Surplus} &= 30.6\mn - 27.7\mn = 2.9\mn
+\end{align*}
+
+Notice how the initial difference in housing stock implied by the different ratios of
+housing per person is controlled for in this calculation. The 2.9 million figure does
+not include the housebuilding required for the Netherlands to catch up with the UK.
+
+Unless this initial gap in homes per person is controlled for by tenure, the
+difference between the private and public surpluses will not equal the total lack of
+housing. Therefore, to control by tenure, the equation can be rewritten as:
+\[
+  \sigma_0 - H_0 + \Js{Total Additions} - \Hs{Total Additions} = \text{Total Surplus}
+\]
+where $\sigma_0 - H_0 = \Js{Diff}$ is equivalent to the initial difference in housing
+stock sizes, $12\mn - 15.4\mn = -3.4\mn$.
+
+Therefore, as with the cumulative population effects, it is assumed that the initial
+gap was made up by the same tenure ratio as the total build of the counterfactual
+country.
+
+For private values:
+\[
+  \frac{\Js{Private Building}}{\Js{Total Building}} \times \Js{Diff}
+  + \Js{Private Additions} - \Hs{Private Additions} = \text{Private Surplus}
+\]
+For the Netherlands this is:
+\[
+  0.59 \times (-3.4\mn) + 11\mn - 8.1\mn = 0.9\mn
+\]
+
+For public values:
+\[
+  \frac{\Js{Public Building}}{\Js{Total Building}} \times \Js{Diff}
+  + \Js{Public Additions} - \Hs{Public Additions} = \text{Public Surplus}
+\]
+For the Netherlands this is:
+\[
+  0.41 \times (-3.4\mn) + 7.6\mn - 4.2\mn = 2\mn
+\]
+creating the values seen in the table in the report.
+
+\subsection*{Additional notes}
+
+It is assumed that:
+\[
+  \frac{\Js{Public Building}}{\Js{Total Building}} \times \Js{Diff}
+  + \Js{Public Additions} > 0
+\]
+which translates to the assumption that, adjusting for population growth, under no
+circumstances would the UK have demolished more social housing from 1955 to 2015 than
+has been built. This controls for a limitation of the model in its handling of the
+population discrepancy in Stage~6 with countries that build very little social
+housing -- without this assumption, the UK counterfactuals of Switzerland and Belgium
+experience net losses of 421,000 and 677,000 social homes respectively from 1955 to
+2015, even though neither actual Switzerland nor actual Belgium appears to have
+demolished social housing at that scale.
+
+Finally, any discrepancies between the example values in this methodology and the
+table in the report are due to the impact of rounding at each stage in the
+methodology, which is not in the data processing in the counterfactual for the
+report, where rounding is only done for the final values.
+
+% ==============================================================================
+\section*{Interpolation}
+
+In the United Nations data, housing stock values are not given consistently across
+Western Europe before 1960, and there are occasional gaps of a year or two for certain
+countries. To overcome this problem and create consistent housing stock values for
+the purposes of creating housebuilding and demolition rates, two linear interpolation
+methods are used.
+
+When there is a gap \textbf{between} years in reported housing stocks, the total net
+additions (or gross, if reported demolitions are not available) between the two known
+values are taken. The surplus or deficit between these values is then divided by the
+number of years between the two values, and the number is then added to or subtracted
+from the housing stock for each year. For example, the given census value for Austria
+is 2.14 million homes in 1951, and it is then not reported until 1963, when it is
+given as 2.36 million homes. During this twelve-year gap, 490,000 homes were built,
+which implies 270,000 demolitions. We therefore assume $270{,}000/12$ demolitions were
+carried out each year.
+
+For historic England and Wales estimates, a more detailed interpolation is possible,
+where the demolitions between the total difference in housing stock between two dates
+are assumed to be distributed \textbf{proportionally} to the gross building in each
+year. For example, in England and Wales there are 3.9 million houses in 1861 and 4.5
+million in 1871. In this case, as 750,000 houses were built in this period, this
+implies that 150,000 demolitions were made. Therefore, the value of demolitions every
+year is calculated by:
+\[
+  \left(\frac{\text{Annual Gross Building}}{750{,}000}\right) \times 150{,}000
+\]
+
+When there is no data \textbf{before} a given year's reported housing stock value,
+then the \textbf{ratio} between the values of the number of demolitions is taken from
+the first known year and assumed to hold for all previous years. This ratio is then
+used to calculate an estimated number of demolitions for each year through
+multiplying the total gross builds for each unknown year with this ratio. After
+demolitions are obtained, the net additions for each year are found and subtracted
+from the previous value for housing stock.
+
+The only country this applies to from before 1955 is Belgium, which gives a housing
+stock value of 3.2 million in 1963. In 1962, 46,000 homes were built and 2,000 were
+demolished. Therefore, a ratio of 2:46 was assumed for demolitions to construction
+for all previous years. Between 1956 and 1963, 325,000 houses were built, implying
+14,000 total demolitions. This gives a value of 310,000 net additions from 1955
+onwards, which implies a housing stock of approximately 2.9 million in 1955.
+
+For graphs, methodological changes mean that discontinuities can arise -- for
+instance, some countries' data appears to alternate between including and dropping
+vacant dwellings. For example, after the UN data source ends in 2000, many countries
+switch to counting inhabited dwellings only. In certain cases, the statistical
+authority will provide inhabited data before 2000 as well, and this data, although
+not being used in earlier calculations, is used in the graphs to avoid a
+discontinuity. If this is not possible, then a consistent interpolated estimate of
+the housing stock using the first method is used for graphs.
+
+For all graphs and estimates of the net change in the stock of homes per person, a
+methodologically consistent form has been used in each case.
+
+For tenure, the ratio of private sector to public sector construction is taken and,
+if the gap is four years or less, then undergoes linear interpolation. Otherwise, the
+final or initial ratio of tenure is assumed to hold for all previous or subsequent
+years. The recorded value for construction is then multiplied by this ratio and
+therefore assumed to be construction by tenure. However, in practice large gaps in
+specification by tenure mainly occur for countries that build minimal social housing.
+
+% ==============================================================================
+\section*{Acknowledgements}
+
+Special thanks to Ronan Lyons, Mika Ronkainen and Per Spolander, who generously
+provided us with post-2000 data for Ireland, Finland and Sweden. Special thanks also
+to Nick Crafts, Paul Cheshire and John Myers for their advice early in the paper's
+research process.
+
+\end{document}

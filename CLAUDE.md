@@ -60,6 +60,7 @@ The archive is now **self-contained**: clone it, run either script, nothing else
 code/     Counterfactual Replication.R, Summary Replication.R -- both run
 data/     the four files those scripts read, 400 KB total
 output/   figures and tables, created on run, gitignored
+docs/     methodology.tex -- the technical annex, typeset in LaTeX (§9c)
 ```
 
 **`data/` holds only what the code reads.** Everything else — the UN source scans, Holmans, the
@@ -416,8 +417,10 @@ why its totals match published Table 3 and its private/public split does not.
 
 It also has an **Interpolation** section, which should independently document §6.
 
-The equations are images in the PDF and do not extract as text, so reproducing the tenure step means
-reading those pages as pages. Not yet done.
+The equations are images in the PDF and do not extract as text. **A LaTeX edition with every equation
+typeset is at `docs/methodology.tex`** (10 Sep 2026) -- read that rather than the PDF. Maths and worked
+examples are as published; only prose slips were corrected. Checking the tenure step against it is
+not yet done.
 
 
 ## 10. Hazards
