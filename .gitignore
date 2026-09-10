@@ -6,11 +6,10 @@
 # Regenerable -- the scripts that make it are what matter
 output/
 
-# LaTeX build files -- methodology.tex is the source
+# LaTeX build files -- the .tex and its compiled .pdf are tracked, the rest is not
 docs/*.aux
 docs/*.fdb_latexmk
 docs/*.fls
 docs/*.log
 docs/*.out
-docs/*.pdf
 docs/*.synctex.gz
