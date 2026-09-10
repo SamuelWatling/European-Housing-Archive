@@ -13,7 +13,7 @@ unrunnable and is best read as documentation.
 
 | Thing | Status |
 |---|---|
-| `Counterfactual Replication.R` | **Runs.** Reproduces published Table 3 totals exactly |
+| `Counterfactual Replication.R` | **Runs.** Reproduces published Table 3 totals exactly, and writes a revised table with Irish and Swedish demolitions (§10.8, §10.10) |
 | `Summary Replication.R` | **New, 10 Sep 2026.** Runs. Reproduces Table 2 and the report's quoted statistics |
 | `European-Housing-Working-Code` (6 theme files, from 13 scripts) | **Cannot run and never will** — 54 of 60 input files are gone |
 | Published tenure split (Table 3) | **Narrowed to one step, not yet closed** — §7 |
@@ -102,7 +102,7 @@ repo and was not found on the machine. It is the most likely home of the tenure-
 
 ## 3. What runs
 
-### `Counterfactual Replication.R` (340 lines) — verified 9 Sep, rewritten 10 Sep 2026
+### `Counterfactual Replication.R` (397 lines) — verified 9 Sep, rewritten 10 Sep 2026
 
 **Reorganised and documented 10 September 2026, arithmetic untouched.** The stage headings now
 follow the annex's Stages 1-7, each explaining what is being controlled for and why; the duplicated
@@ -113,6 +113,14 @@ tenure-ratio strings.
 Reads `data/Combined.csv`, writes `output/Table 3 - missing homes 1955-2015.csv`. Reproduces the saved `Export3.csv` byte for byte, and
 its totals match published Table 3 on all 13 rows: UK 12,230,000; Western European Average
 4,254,000 — the "4.3 million missing homes" headline.
+
+**Revised table, added 10 Sep 2026.** Stages 6-7 are now one function, `build_table3(own_demolitions)`,
+run twice. With `OWN_DEMOLITIONS_PUBLISHED` (Switzerland) it reproduces the published table, still
+asserted row for row, and its output is byte-identical to the script's previous output. With
+`OWN_DEMOLITIONS_REVISED` (Switzerland, Ireland and Sweden) it writes
+`output/Table 3 revised - own demolitions.csv` and asserts that only the Ireland, Sweden and Western
+European Average rows change. §10.8 (Ireland) and §10.10 (Sweden) cover what the revision does and
+why it is not yet adopted; §13.6 has the combined effect.
 
 **It also runs from `Replication Data full.xlsx`** with a rename of 7 columns (§4). Doing so
 changes 3 of 13 rows by 1,000 on ~8,000,000 — one unit in the last significant figure, caused
@@ -476,12 +484,88 @@ split this script uses. The published country rows are not yet reconciled.
    the bad 1971 row. Fix options: rebuild the totals from their sub-categories where they disagree
    (the UN classes co-operatives as private); treat only all-zero rows as missing; interpolate the
    private share and set public = 1 - private. **Sam plans to revise the Swiss values later.**
-8. **Negative demolition rates for Ireland -- open, for a later fix.** The Stage 4 adjustment
-   `NewDemRate = DemRate + (StockRatio - 1)/100` (`Counterfactual Replication.R` line 209) has no
-   floor. For the Ireland counterfactual it is negative in 18 years (1978-96), adding about 239,000
-   of Ireland's 7,076,000 extra homes; the Netherlands also dips below zero in 1992 (about 1,000
-   homes). `docs/methodology.tex` describes this as the code behaves. **Sam plans to revise the
-   Irish values later.**
+8. **Negative demolition rates for Ireland -- revised table added 10 Sep 2026; which Irish series
+   to use is still Sam's decision.** The Stage 4 adjustment
+   `NewDemRate = DemRate + (StockRatio - 1)/100` in `Counterfactual Replication.R` has no floor. For
+   the Ireland counterfactual it is negative in 18 years (1978-96), adding about 239,000 of
+   Ireland's 7,076,000 extra homes; the Netherlands also dips below zero in 1992 (about 1,000
+   homes). `docs/methodology.tex` describes the published calculation and notes the revision.
+
+   **The revised table** gives Ireland its own reported demolitions (`Y2` in `Combined.csv`,
+   reported 1966-98), filled as for Switzerland: gaps of up to two years interpolated, otherwise the
+   demolitions-to-completions ratio carried from the nearest reported year (0.54 back to 1955, 0.175
+   forward from 1998). Ireland's demolition rate becomes 0.62% a year in 1955-65, 0.78% in 1966-98
+   and 0.47% in 1999-2015, against 0.31%, 0.07% and 0.17% under the adjusted British rate, and the
+   Irish counterfactual turns negative. How negative depends on the Irish series:
+
+       Irish demolition source                            Ireland total   WEA, Ireland alone
+       published: adjusted British rate                      7,076,000        4,254,000
+       reported Y2, Swiss-style fill (revised table)        -2,263,000        3,405,000
+       Y2, with its gaps filled from workbook obsolescence  -1,227,000        3,499,000
+       workbook obsolescence from 1970                         102,000        3,620,000
+
+   The alternative series is in `Ireland Annual Housing Market Statistics - for Sam Watling.xlsx`
+   (`Processed European Data`, sheet `Annual`, column 169, "Est number of units obsolete per year",
+   1970-2020): census-benchmarked obsolescence (demolition, dereliction and conversion), on a larger
+   stock definition than the panel's (813k against 731k homes in 1971). Over 1970-98 it totals 143k
+   against the panel's 190k, and the panel's 1971-82 figures are a flat 6,500 a year, which looks
+   like a repeated estimate. **Open questions for Sam:** which series to use, and whether a UK that
+   built at Ireland's rate should also demolish at Ireland's rate. Applied to a UK-sized stock for 60
+   years, Irish demolition rates remove the whole Irish advantage and would, on their own, move the
+   report's 4.3 million headline to about 3.4 million (all three revisions together: §13.6).
+9. **Why Switzerland's counterfactual is the smallest in Table 3 (1,647,000) -- investigated
+   10 Sep 2026, for the Swiss revision.** Swiss homes per 1,000 people rose from 285 to 525 over
+   1955-2015 (+241). The counterfactual credits the UK with 285 to 450 (+165), 69% of the Swiss
+   gain and the lowest share of the eleven comparators (most are 83% or more; Belgium, Austria,
+   Ireland and Norway exceed 140%). The 2015 gap, in homes per 1,000, breaks down as:
+
+       actual Swiss stock / population                                     525.5
+       stock = 1955 + completions - demolitions                            491.2   -34.3
+       same, compounded as rates on the estimated stock (code convention)  484.1    -7.1
+       tenure shares as recorded, co-operatives missing 1955-78 (§10.7)    450.1   -34.0
+       population via the code's UK-relative index = counterfactual        449.9    -0.2
+
+   Swiss counterfactual total (thousands of homes) under alternatives: code 1,647; tenure shares
+   made to sum to one 3,860; UK-based demolition rule instead of Swiss data 114; both 1,202;
+   starting at the UK's 1955 homes per person 3,498.
+   - **Co-operatives -- a data error (§10.7).** Fixing them alone takes Switzerland to about
+     3.86m, from smallest in the table to mid-table. This is the fix to make in the revision.
+   - **The stock grew faster than completions -- the method.** The Swiss stock rose 2,936k over
+     1955-2015 against 2,798k completions less 146k demolitions: 284k unexplained, mostly 2000-10
+     (reported +510k against 381k completed: 150k), 1971-73 (57k) and 1991-93 (42k). Likely
+     conversions, changes of use and changes in how dwellings are counted -- not verified against
+     Swiss sources. The counterfactual is built from completions, so this growth never reaches it,
+     and the same mechanism flatters countries whose stock grew more slowly than their completions.
+     A method question, not a bug.
+   - **Starting below the UK -- by design.** Swiss 1955 homes per person were 0.941 of the UK's,
+     so the counterfactual starts about 0.9m homes behind and only overtakes the UK model around
+     1980 (363 against 367 per 1,000 in 1975; 415 against 399 in 1985).
+   - **Not the cause.** Switzerland's own demolition rates (0.16-0.17% a year in 1955-75) are lower
+     than the UK-based rule would give it (0.29-0.48%), so the Swiss exception raises its figure;
+     the population index costs only 0.2 per 1,000.
+10. **Swedish reported demolitions undercount losses from the stock -- revised table added
+    10 Sep 2026, not for adoption as it stands.** Sweden reports demolitions (`Y2`) for 1954-79 and
+    1989-2019, and nothing for 1980-88. The values are not implausible in themselves: 2.3k-11k a
+    year in 1954-79 (at most 0.38% of the stock), and 0.5k-4.6k from 1989. The "74" for 1961 in the
+    raw UN file `1950HouseDataV.csv` is an OCR error for about 7; the panel does not use it, taking
+    7.1 from `CompleteData1958-1991.csv`.
+
+    **The problem is what they leave out.** Between reported stocks, the stock rises far less than
+    completions minus reported demolitions: 1950-70 +841k against 1,502k completions and 129k
+    demolitions, so 532k unexplained and total losses about five times the reported demolitions;
+    then 132k unexplained in 1970-76, 59k in 1976-85 and 18k in 1985-90. From 1994 the gap is small
+    and slightly positive. The reported stock also breaks in 1990-94 (4,045k in 1990, 3,904k in 1991,
+    4,044k repeated for 1992-93, 4,223k in 1994), though these net to about zero over the four years.
+    Likely the UN series counts formal demolitions only, not other losses (mergers of small flats,
+    conversions to non-residential use, abandoned rural dwellings) -- not verified against Swedish
+    sources.
+
+    **Effect.** With its own demolitions Sweden demolishes at 0.24% a year in 1955-79, 0.07% in
+    1980-88 and 0.04% in 1989-2015, against 0.74%, 0.46% and 0.36% under the adjusted British rate,
+    so its counterfactual jumps from 2,137,000 to 10,370,000, the largest in the table. That fits
+    Sam's memory of an incredibly high value, and it comes from under-recorded losses, not from
+    building. A fairer option would be each country's implied losses (completions minus the change
+    in reported stock) in place of reported demolitions, applied to every country alike.
 
 ---
 
@@ -547,8 +631,29 @@ rows and three decades of Table 6 (item 2). The UK row's split is explained (§9
 5. ~~Consider moving `Project R Code/` to a `docs/` subfolder so it stops looking runnable.~~
    **Done 10 Sep 2026.** The working code has its own repo, grouped into six theme files, and its
    README says it does not run.
-6. **Revise the Swiss and Irish values** (Sam, planned). Deal with the tenure shares (§10.7; for
-   Switzerland that means putting co-operatives back into private) and Ireland's negative demolition
-   rates (§10.8) at the same time. Both change published Table 3 figures, so the totals that
-   `Counterfactual Replication.R` asserts against the published table will need a decision, and
-   `docs/methodology.tex` will need updating to match.
+6. **Revise the Swiss, Irish and Swedish values** (Sam, planned). Status 10 Sep 2026:
+   - **Ireland and Sweden** use their own reported demolitions in the revised table that
+     `Counterfactual Replication.R` writes (§10.8, §10.10). Neither is ready to adopt: the Irish
+     result swings from -2,263,000 to +102,000 with the series chosen, and Swedish reported
+     demolitions undercount losses from the stock.
+   - **Switzerland** is not in the code yet. Putting co-operatives back into private (private =
+     1 - public, 1955-78) takes it from 1,647,000 to 3,860,000 (§10.7, §10.9). Computed with an
+     independent replica of the code that reproduces all 13 published rows.
+   - **Effect on the Western European Average**, thousands (rows are independent, so the effects
+     add):
+
+         published                                            4,254   (private 5,301, public -1,047)
+         Swiss co-operatives only                             4,455
+         Irish own demolitions only (panel Y2)                3,405
+         Swedish own demolitions only                         5,003
+         Ireland + Sweden (the revised table in the code)     4,154   (5,128 / -974)
+         all three, Irish panel demolitions                   4,355   (5,325 / -970)
+         all three, Irish workbook obsolescence               4,570   (5,512 / -942)
+         Swiss + Irish, Sweden as published (Irish panel)     3,606
+         Swiss + Irish, Sweden as published (Irish workbook)  3,821
+
+     All three together roughly cancel, moving the headline from 4.3m to 4.4m, or 4.6m with the Irish
+     workbook series. But the Swedish increase rests on under-recorded losses; leave it out and the
+     headline falls to 3.6-3.8m.
+   - Adopting any of these changes published Table 3, so decide how the published-table assertions
+     and `docs/methodology.tex` should then present the revised figures.

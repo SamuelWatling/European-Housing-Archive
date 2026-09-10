@@ -427,7 +427,8 @@ when they have overtaken the UK and actual UK demolitions have dropped to very l
 
 Nothing stops $D_t$ falling below zero. It does so for the Ireland counterfactual in 18
 years (1978 to 1996), where the negative demolitions add about 239,000 homes, and for the
-Netherlands in 1992, where the effect is negligible.
+Netherlands in 1992, where the effect is negligible. The script also builds a revised table in
+which Ireland and Sweden use their own reported demolitions; see the Notes.
 
 Switzerland is the exception: its demolition data are of high enough quality to use
 directly. Its $D_t$ is its own demolitions divided by its own estimated stock, with gaps of
@@ -551,6 +552,18 @@ That calculation is in the 2022 working code but not in
 Belgium show public surpluses of exactly $-4{,}358{,}000$, have not been reconciled with
 any surviving code.
 
+\textbf{A revised table for Ireland and Sweden.} \code{Counterfactual Replication.R} also builds
+the results table a second time, with Ireland and Sweden, like Switzerland, using their own
+reported demolitions. Ireland reports them for 1966--98 and Sweden for 1954--79 and 1989--2019;
+other years are filled the same way as Switzerland's. Ireland's demolition rate rises to 0.5 to
+0.8 per cent a year, and its row falls from 7,076,000 to $-2{,}263{,}000$. Sweden's falls to 0.04
+to 0.24 per cent, and its row rises from 2,137,000 to 10,370,000. The Western European Average
+moves from 4,254,000 to 4,154,000, and no other row changes. Neither revision is reliable as it
+stands: the Irish result depends heavily on which demolition series is used, and Sweden's reported
+demolitions leave out most of the homes that left its stock, which its reported stock implies were
+several times larger. The revised table is therefore written to a separate file and does not
+replace the table described above.
+
 \textbf{Rounding.} Any difference between the worked figures here and the results table is
 due to display rounding; the code rounds only its final values.
 
@@ -654,6 +667,8 @@ data mainly occur for countries that build minimal social housing.
         to five years, not four, are interpolated.
   \item \textbf{Tenure shares} that do not sum to one, for Finland and Switzerland, are
         noted.
+  \item \textbf{Revised table.} The note on the revised table, in which Ireland and Sweden use
+        their own demolitions, is new.
 \end{itemize}
 
 % ==============================================================================

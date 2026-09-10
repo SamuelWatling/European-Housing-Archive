@@ -56,9 +56,21 @@
 # -4,358,000, i.e. zero counterfactual public building, which this script does
 # not produce -- there may be a floor at zero that is missing here.
 #
-# The arithmetic below is UNCHANGED from the 2022 original. This file was
-# reorganised and documented on 10 September 2026 and its output verified
-# identical; resolving the split is a separate change with its own diff.
+# A REVISED TABLE ALONGSIDE THE PUBLISHED ONE
+# -------------------------------------------
+# Every comparator gets the British demolition rate, adjusted for the size of
+# its counterfactual stock, except the countries that use their own reported
+# demolitions. The published table did that for Switzerland only. For Ireland
+# the adjusted British rate goes negative in 1978-96, adding about 239,000
+# homes, so Table 3 is built twice: exactly as published (asserted below), and
+# revised, with Ireland and Sweden also using their own reported demolitions
+# (Y2: Ireland 1966-98, Sweden 1954-79 and 1989-2019; gaps filled the same way
+# as Switzerland's). Only the Ireland, Sweden and Western European Average rows
+# differ, and the script checks that.
+#
+# The arithmetic of the published run is UNCHANGED from the 2022 original. This
+# file was reorganised and documented on 10 September 2026 and its output
+# verified identical; resolving the split is a separate change with its own diff.
 # =============================================================================
 
 library(tidyverse)
@@ -84,6 +96,14 @@ DATA_DIR <- file.path(ROOT, "data")
 OUT_DIR  <- file.path(ROOT, "output")
 stopifnot("Run this from the repo root or from code/" = dir.exists(DATA_DIR))
 dir.create(OUT_DIR, showWarnings = FALSE)
+
+# Countries that use their own reported demolitions instead of the adjusted
+# British rate. The published Table 3 used Switzerland only. The revised table
+# adds Ireland, whose adjusted British rate goes negative in 1978-96 and adds
+# about 239,000 homes (CLAUDE.md §10.8), and Sweden, which also reports its
+# demolitions (CLAUDE.md §10.10).
+OWN_DEMOLITIONS_PUBLISHED <- c("Switzerland")
+OWN_DEMOLITIONS_REVISED   <- c("Switzerland", "Ireland", "Sweden")
 
 # =============================================================================
 # STAGES 1-2: population growth, and building rates by tenure
@@ -162,155 +182,167 @@ Counterfac <- Data %>%
   mutate(Cumupriv = cumsum(Privbuild), Cumupub = cumsum(Pubbuild)) %>% 
   arrange(Country)
 # =============================================================================
-# Switzerland: demolitions handled separately
+# STAGES 6-7 AS ONE FUNCTION, so Table 3 can be built for published and revised
+# choices of which countries use their own demolitions
 # =============================================================================
-# Every other country's demolition rate is adjusted in Stage 6 below via the
-# stock ratio. Switzerland cannot be: its reported demolitions are too sparse
-# for that adjustment to behave, so its rate is built directly from the reported
-# series (Y2) by interpolating, filling a demolitions-to-building ratio, and
-# multiplying back up -- the same construction used for Britain above.
-#
-# It is then bound back in and treated identically from Stage 6 onward.
-Swiss <- Counterfac %>% 
-  filter(Country %in% c("Switzerland")) %>% 
-  group_by(Country) %>%
-  mutate(NewDemRate = na.approx(Y2, maxgap = 2, na.rm = FALSE)) %>% 
-  mutate(SwiDemRatio = NewDemRate / Y7) %>% 
-  fill(SwiDemRatio, .direction = "downup") %>% 
-  mutate(NewDemRatio = SwiDemRatio * Y7) %>% 
-  mutate(NewDemRate  = coalesce(NewDemRate, NewDemRatio)) %>%
-  mutate(NewDemRate = NewDemRate / `X5 (Estimate)`) %>% 
-  select(-c("SwiDemRatio", "NewDemRatio"))
-SwiBrit <- Counterfac %>% 
-  filter(Country == "Unitedkingdom") %>% 
-  ungroup() %>%
-  select(c("Date", "Counterstock")) %>% 
-  rename("BritAlt" = "Counterstock") %>%
-  full_join(Swiss, by = c("Date" = "Date")) %>% 
-  mutate(StockRatio = Counterstock / BritAlt) 
-# =============================================================================
-# STAGE 6: adjust demolitions for the size of the counterfactual stock
-# =============================================================================
-# A counterfactual Britain with more homes than the real one would also have
-# demolished more of them. StockRatio measures how much larger the
-# counterfactual stock is, and the demolition rate is scaled by it, so the
-# estimate does not credit the counterfactual with homes it would have lost.
-#
-# This is what makes the estimates conservative rather than generous, and it is
-# also where the running totals for each tenure are formed.
-Counterfac3 <- Counterfac %>% 
-  filter(Country == "Unitedkingdom") %>% 
-  ungroup() %>%
-  select(c("Date", "Counterstock")) %>% 
-  rename("BritAlt" = "Counterstock") %>%
-  full_join(Counterfac, by = c("Date" = "Date")) %>% 
-  filter(Country != "Switzerland" ) %>%
-  mutate(StockRatio = Counterstock / BritAlt) %>% 
-  mutate(NewDemRate = DemRate + ((StockRatio - 1) / 100)) %>% 
-  rbind(SwiBrit) %>%
-  mutate(NewTotRate = TotRate - NewDemRate) %>% 
-  mutate(PrivDem = NewDemRate*`4`, PubDem = NewDemRate* `1`) %>%
-  group_by(Country) %>%
-  mutate(NewCumustock = cumprod(NewTotRate)) %>% 
-  mutate(NewCounterstock = EuroPopStock * NewCumustock) %>% 
-  mutate(NewPrivbuild = NewCounterstock * Priv, NewPubbuild = NewCounterstock * Pub) %>% 
-  mutate(NewCumupriv = cumsum(NewPrivbuild), NewCumupub = cumsum(NewPubbuild)) %>% 
-  mutate(NewPrivdem = NewCounterstock*PrivDem, NewPubdem = NewCounterstock*PubDem) %>%
-  mutate(CumuPrivdem = cumsum(NewPrivdem), CumuPubdem = cumsum(NewPubdem)) %>%
-  arrange(Country) 
-# =============================================================================
-# STAGE 7: express every counterfactual as a difference from the actual UK
-# =============================================================================
-# Published Table 3 reports how many MORE homes Britain would have. So each
-# country's 2015 cumulative additions are differenced against the UK's own row,
-# leaving the UK at zero by construction.
-#
-# Cumulative demolitions are netted off each tenure first, so the figures are
-# additions to the stock rather than gross building.
-Table3 <- Counterfac3 %>% 
-  filter(Date == as.Date("2015-01-01")) %>% 
-  mutate(NewCumupriv = NewCumupriv - CumuPrivdem, NewCumupub = NewCumupub - CumuPubdem) %>%
-  select(c("Country", "NewCumupriv", "NewCumupub", "NewCounterstock")) %>% 
-  mutate(NewCumuTot = NewCumupriv + NewCumupub) %>%
-  pivot_longer(-c("Country"), names_to = "Item", values_to = "Value") %>% 
-  pivot_wider(names_from = Country, values_from = Value) %>% 
-  mutate(across(`Austria`:`Switzerland`, ~ .x - Unitedkingdom)) %>% 
-  pivot_longer(-c("Item", "Unitedkingdom"), names_to = "Country", values_to = "Value") %>% 
-  group_by(Item) %>% 
-  mutate(Mean = mean(Value)) 
-# ---- The UK reference row ---------------------------------------------------
-# The actual UK: 12.23m homes added 1955-2015, split by tenure. Its private and
-# public figures are the total split by the tenure ratio of its own building,
-# after apportioning demolitions across the two tenures in the same proportion.
-BritRef3 <- Table3 %>%
-  select(c("Item", "Unitedkingdom")) %>% 
-  distinct() %>%
-  pivot_wider(names_from = Item, values_from = Unitedkingdom) %>%
-  mutate(Country = "United Kingdom") %>% 
-  mutate(PrivRatio = NewCumupriv / NewCumuTot, PubRatio = NewCumupub / NewCumuTot) %>%
-  mutate(Cumuinc = NewCounterstock - 15418) %>% 
-  mutate(CumuDem = NewCumuTot - Cumuinc) %>% 
-  mutate(CumuDemPriv = CumuDem*PrivRatio, CumuDemPub = CumuDem*PubRatio) %>% 
-  mutate(AdjCumuPriv = NewCumupriv - CumuDemPriv, AdjCumuPub = NewCumupub - CumuDemPub) %>% 
-  select(c("Country", "AdjCumuPriv", "AdjCumuPub", "Cumuinc", "PrivRatio", "PubRatio")) %>% 
-  rename("NewCounterstock" = "Cumuinc")
-EurTab3 <- Table3 %>% 
-  select(-c("Unitedkingdom")) %>% 
-  pivot_wider(names_from = Country, values_from = Value) %>% 
-  pivot_longer(-c("Item"), names_to = "Country", values_to = "Value") %>% 
-  pivot_wider(names_from = Item, values_from = Value) %>% 
-  mutate(DiffNum = NewCounterstock - NewCumuTot) %>% 
-  mutate(Country = gsub("Mean", "Western European Average", Country))
-SumEurTab3 <- Counterfac3 %>%  
-  filter(Date == as.Date("2015-01-01")) %>%
-  select(c("Country", "NewCumupriv", "NewCumupub", "NewCounterstock")) %>% 
-  mutate(NewCumuTot = NewCumupriv + NewCumupub) %>%
-  pivot_longer(-c("Country"), names_to = "Item", values_to = "Value") %>% 
-  pivot_wider(names_from = Country, values_from = Value) %>% 
-  select(-c("Unitedkingdom")) %>% 
-  pivot_longer(-c("Item"), names_to = "Country", values_to = "Value") %>% 
-  pivot_wider(names_from = Item, values_from = Value) %>% 
-  rename_with(~ tolower(gsub("$", "_Tot", .x))) %>%
-  left_join(EurTab3, by = c("country_tot" = "Country")) 
-# ---- Allocating the population-adjustment discrepancy -----------------------
-# Controlling for population growth leaves a gap between the total net change in
-# stock and the sum of gross building and demolitions, and compounding turns it
-# into millions of homes over sixty years. The methodology annex splits it
-# across tenures "in the same tenure ratio as the total tenure ratio of the net
-# additions to the housing stock":
-#
-#     Private additions = net private building - (private share) x discrepancy
-#
-# which is what `AdjCumuPriv = NewCumupriv + PrivRatio * DiffNum` computes,
-# DiffNum being the negative of that discrepancy.
-NewTot3 <- SumEurTab3 %>%
-  mutate(PrivRatio = newcumupriv_tot / newcumutot_tot, PubRatio = newcumupub_tot / newcumutot_tot) %>% 
-  mutate(Privdiff = PrivRatio * DiffNum, Pubdiff = PubRatio * DiffNum) %>% 
-  mutate(AdjCumuPriv = NewCumupriv + Privdiff, AdjCumuPub = NewCumupub + Pubdiff) %>% 
-  rename("Country" = "country_tot") %>% 
-  select(c("Country", "PrivRatio", "PubRatio", "AdjCumuPriv", "AdjCumuPub", "NewCounterstock")) %>% 
-  pivot_longer(-c("Country"), names_to = "Item", values_to = "Value") %>% 
-  group_by(Item) %>% 
-  mutate(`Western European Average` = mean(Value)) %>% 
-  pivot_wider(names_from = Country, values_from = Value) %>%
-  pivot_longer(-c("Item"), names_to = "Country", values_to = "Value") %>%
-  pivot_wider(names_from = Item, values_from = Value) %>% 
-  arrange(NewCounterstock) 
-WestEurope3 <- NewTot3 %>% 
-  filter(Country == "Western European Average")
-# ---- Output -----------------------------------------------------------------
-# Rounded to four significant figures, matching the published table.
-Export3 <- BritRef3 %>% 
-  rbind(NewTot3) %>% 
-  filter(Country != "Western European Average") %>% 
-  rbind(WestEurope3) %>% 
-  mutate(across(`AdjCumuPriv`:`NewCounterstock`, ~ .x * 1000)) %>% 
-  mutate(across(`AdjCumuPriv`:`NewCounterstock`, ~ signif(.x, digits = 4))) %>% 
-  mutate(across(`PrivRatio`:`PubRatio`, ~ .x * 100)) %>% 
-  mutate(across(`PrivRatio`:`PubRatio`, ~ round(.x, digits = 0))) %>% 
-  unite("Private : Public Percentage of Additions", PrivRatio:PubRatio, sep = " : ") %>%
-  rename("Calculated Private Additions" = "AdjCumuPriv", "Calculated Public Additions" = "AdjCumuPub", 
-         "Calculated Total Additions" = "NewCounterstock")
+build_table3 <- function(own_demolitions) {
+  # =============================================================================
+  # Countries with their own demolitions: handled separately
+  # =============================================================================
+  # Every other country's demolition rate is the British rate adjusted in Stage 6
+  # below via the stock ratio. The countries in `own_demolitions` use their own
+  # reported series (Y2) instead, built by interpolating, filling a
+  # demolitions-to-building ratio, and multiplying back up -- the same
+  # construction used for Britain above. Switzerland in the published table;
+  # Switzerland, Ireland and Sweden in the revised one.
+  #
+  # They are then bound back in and treated identically from Stage 6 onward.
+  OwnDem <- Counterfac %>% 
+    filter(Country %in% own_demolitions) %>% 
+    group_by(Country) %>%
+    mutate(NewDemRate = na.approx(Y2, maxgap = 2, na.rm = FALSE)) %>% 
+    mutate(OwnDemRatio = NewDemRate / Y7) %>% 
+    fill(OwnDemRatio, .direction = "downup") %>% 
+    mutate(NewDemRatio = OwnDemRatio * Y7) %>% 
+    mutate(NewDemRate  = coalesce(NewDemRate, NewDemRatio)) %>%
+    mutate(NewDemRate = NewDemRate / `X5 (Estimate)`) %>% 
+    select(-c("OwnDemRatio", "NewDemRatio"))
+  OwnBrit <- Counterfac %>% 
+    filter(Country == "Unitedkingdom") %>% 
+    ungroup() %>%
+    select(c("Date", "Counterstock")) %>% 
+    rename("BritAlt" = "Counterstock") %>%
+    full_join(OwnDem, by = c("Date" = "Date")) %>% 
+    mutate(StockRatio = Counterstock / BritAlt) 
+  # =============================================================================
+  # STAGE 6: adjust demolitions for the size of the counterfactual stock
+  # =============================================================================
+  # A counterfactual Britain with more homes than the real one would also have
+  # demolished more of them. StockRatio measures how much larger the
+  # counterfactual stock is, and the demolition rate is scaled by it, so the
+  # estimate does not credit the counterfactual with homes it would have lost.
+  #
+  # This is what makes the estimates conservative rather than generous, and it is
+  # also where the running totals for each tenure are formed.
+  Counterfac3 <- Counterfac %>% 
+    filter(Country == "Unitedkingdom") %>% 
+    ungroup() %>%
+    select(c("Date", "Counterstock")) %>% 
+    rename("BritAlt" = "Counterstock") %>%
+    full_join(Counterfac, by = c("Date" = "Date")) %>% 
+    filter(!Country %in% own_demolitions) %>%
+    mutate(StockRatio = Counterstock / BritAlt) %>% 
+    mutate(NewDemRate = DemRate + ((StockRatio - 1) / 100)) %>% 
+    rbind(OwnBrit) %>%
+    mutate(NewTotRate = TotRate - NewDemRate) %>% 
+    mutate(PrivDem = NewDemRate*`4`, PubDem = NewDemRate* `1`) %>%
+    group_by(Country) %>%
+    mutate(NewCumustock = cumprod(NewTotRate)) %>% 
+    mutate(NewCounterstock = EuroPopStock * NewCumustock) %>% 
+    mutate(NewPrivbuild = NewCounterstock * Priv, NewPubbuild = NewCounterstock * Pub) %>% 
+    mutate(NewCumupriv = cumsum(NewPrivbuild), NewCumupub = cumsum(NewPubbuild)) %>% 
+    mutate(NewPrivdem = NewCounterstock*PrivDem, NewPubdem = NewCounterstock*PubDem) %>%
+    mutate(CumuPrivdem = cumsum(NewPrivdem), CumuPubdem = cumsum(NewPubdem)) %>%
+    arrange(Country) 
+  # =============================================================================
+  # STAGE 7: express every counterfactual as a difference from the actual UK
+  # =============================================================================
+  # Published Table 3 reports how many MORE homes Britain would have. So each
+  # country's 2015 cumulative additions are differenced against the UK's own row,
+  # leaving the UK at zero by construction.
+  #
+  # Cumulative demolitions are netted off each tenure first, so the figures are
+  # additions to the stock rather than gross building.
+  Table3 <- Counterfac3 %>% 
+    filter(Date == as.Date("2015-01-01")) %>% 
+    mutate(NewCumupriv = NewCumupriv - CumuPrivdem, NewCumupub = NewCumupub - CumuPubdem) %>%
+    select(c("Country", "NewCumupriv", "NewCumupub", "NewCounterstock")) %>% 
+    mutate(NewCumuTot = NewCumupriv + NewCumupub) %>%
+    pivot_longer(-c("Country"), names_to = "Item", values_to = "Value") %>% 
+    pivot_wider(names_from = Country, values_from = Value) %>% 
+    mutate(across(`Austria`:`Switzerland`, ~ .x - Unitedkingdom)) %>% 
+    pivot_longer(-c("Item", "Unitedkingdom"), names_to = "Country", values_to = "Value") %>% 
+    group_by(Item) %>% 
+    mutate(Mean = mean(Value)) 
+  # ---- The UK reference row ---------------------------------------------------
+  # The actual UK: 12.23m homes added 1955-2015, split by tenure. Its private and
+  # public figures are the total split by the tenure ratio of its own building,
+  # after apportioning demolitions across the two tenures in the same proportion.
+  BritRef3 <- Table3 %>%
+    select(c("Item", "Unitedkingdom")) %>% 
+    distinct() %>%
+    pivot_wider(names_from = Item, values_from = Unitedkingdom) %>%
+    mutate(Country = "United Kingdom") %>% 
+    mutate(PrivRatio = NewCumupriv / NewCumuTot, PubRatio = NewCumupub / NewCumuTot) %>%
+    mutate(Cumuinc = NewCounterstock - 15418) %>% 
+    mutate(CumuDem = NewCumuTot - Cumuinc) %>% 
+    mutate(CumuDemPriv = CumuDem*PrivRatio, CumuDemPub = CumuDem*PubRatio) %>% 
+    mutate(AdjCumuPriv = NewCumupriv - CumuDemPriv, AdjCumuPub = NewCumupub - CumuDemPub) %>% 
+    select(c("Country", "AdjCumuPriv", "AdjCumuPub", "Cumuinc", "PrivRatio", "PubRatio")) %>% 
+    rename("NewCounterstock" = "Cumuinc")
+  EurTab3 <- Table3 %>% 
+    select(-c("Unitedkingdom")) %>% 
+    pivot_wider(names_from = Country, values_from = Value) %>% 
+    pivot_longer(-c("Item"), names_to = "Country", values_to = "Value") %>% 
+    pivot_wider(names_from = Item, values_from = Value) %>% 
+    mutate(DiffNum = NewCounterstock - NewCumuTot) %>% 
+    mutate(Country = gsub("Mean", "Western European Average", Country))
+  SumEurTab3 <- Counterfac3 %>%  
+    filter(Date == as.Date("2015-01-01")) %>%
+    select(c("Country", "NewCumupriv", "NewCumupub", "NewCounterstock")) %>% 
+    mutate(NewCumuTot = NewCumupriv + NewCumupub) %>%
+    pivot_longer(-c("Country"), names_to = "Item", values_to = "Value") %>% 
+    pivot_wider(names_from = Country, values_from = Value) %>% 
+    select(-c("Unitedkingdom")) %>% 
+    pivot_longer(-c("Item"), names_to = "Country", values_to = "Value") %>% 
+    pivot_wider(names_from = Item, values_from = Value) %>% 
+    rename_with(~ tolower(gsub("$", "_Tot", .x))) %>%
+    left_join(EurTab3, by = c("country_tot" = "Country")) 
+  # ---- Allocating the population-adjustment discrepancy -----------------------
+  # Controlling for population growth leaves a gap between the total net change in
+  # stock and the sum of gross building and demolitions, and compounding turns it
+  # into millions of homes over sixty years. The methodology annex splits it
+  # across tenures "in the same tenure ratio as the total tenure ratio of the net
+  # additions to the housing stock":
+  #
+  #     Private additions = net private building - (private share) x discrepancy
+  #
+  # which is what `AdjCumuPriv = NewCumupriv + PrivRatio * DiffNum` computes,
+  # DiffNum being the negative of that discrepancy.
+  NewTot3 <- SumEurTab3 %>%
+    mutate(PrivRatio = newcumupriv_tot / newcumutot_tot, PubRatio = newcumupub_tot / newcumutot_tot) %>% 
+    mutate(Privdiff = PrivRatio * DiffNum, Pubdiff = PubRatio * DiffNum) %>% 
+    mutate(AdjCumuPriv = NewCumupriv + Privdiff, AdjCumuPub = NewCumupub + Pubdiff) %>% 
+    rename("Country" = "country_tot") %>% 
+    select(c("Country", "PrivRatio", "PubRatio", "AdjCumuPriv", "AdjCumuPub", "NewCounterstock")) %>% 
+    pivot_longer(-c("Country"), names_to = "Item", values_to = "Value") %>% 
+    group_by(Item) %>% 
+    mutate(`Western European Average` = mean(Value)) %>% 
+    pivot_wider(names_from = Country, values_from = Value) %>%
+    pivot_longer(-c("Item"), names_to = "Country", values_to = "Value") %>%
+    pivot_wider(names_from = Item, values_from = Value) %>% 
+    arrange(NewCounterstock) 
+  WestEurope3 <- NewTot3 %>% 
+    filter(Country == "Western European Average")
+  # ---- Output -----------------------------------------------------------------
+  # Rounded to four significant figures, matching the published table.
+  Export3 <- BritRef3 %>% 
+    rbind(NewTot3) %>% 
+    filter(Country != "Western European Average") %>% 
+    rbind(WestEurope3) %>% 
+    mutate(across(`AdjCumuPriv`:`NewCounterstock`, ~ .x * 1000)) %>% 
+    mutate(across(`AdjCumuPriv`:`NewCounterstock`, ~ signif(.x, digits = 4))) %>% 
+    mutate(across(`PrivRatio`:`PubRatio`, ~ .x * 100)) %>% 
+    mutate(across(`PrivRatio`:`PubRatio`, ~ round(.x, digits = 0))) %>% 
+    unite("Private : Public Percentage of Additions", PrivRatio:PubRatio, sep = " : ") %>%
+    rename("Calculated Private Additions" = "AdjCumuPriv", "Calculated Public Additions" = "AdjCumuPub", 
+           "Calculated Total Additions" = "NewCounterstock")
+  Export3
+}
+
+# ---- The published table, and the revised one -------------------------------
+Export3         <- build_table3(OWN_DEMOLITIONS_PUBLISHED)
+Export3_revised <- build_table3(OWN_DEMOLITIONS_REVISED)
 
 # ---- Verification against the published table --------------------------------
 # Published Table 3, p44. The totals must reproduce exactly; the tenure split is
@@ -338,5 +370,28 @@ stopifnot(
 )
 message("  All 13 published totals reproduce.")
 
+# ---- The revised table ------------------------------------------------------
+# The revision may only move the rows it touches: the countries added to the
+# own-demolitions list, and the Western European Average built from them.
+revised_rows <- c(setdiff(OWN_DEMOLITIONS_REVISED, OWN_DEMOLITIONS_PUBLISHED),
+                  "Western European Average")
+untouched <- function(tab) tab %>% filter(!Country %in% revised_rows) %>% arrange(Country)
+stopifnot("The revised table changed rows it should not touch" =
+            isTRUE(all.equal(as.data.frame(untouched(Export3)),
+                             as.data.frame(untouched(Export3_revised)))))
+
+tidy_rows <- function(tab, label) tab %>%
+  filter(Country %in% revised_rows) %>%
+  select(Country, Private = `Calculated Private Additions`,
+         Public = `Calculated Public Additions`, Total = `Calculated Total Additions`) %>%
+  mutate(Table = label)
+revision <- bind_rows(tidy_rows(Export3, "published"), tidy_rows(Export3_revised, "revised")) %>%
+  arrange(Country, Table)
+message("Revised table -- Ireland and Sweden use their own reported demolitions:")
+print(as.data.frame(revision), row.names = FALSE)
+
 write_csv(Export3, file.path(OUT_DIR, "Table 3 - missing homes 1955-2015.csv"))
 message("Wrote ", file.path(OUT_DIR, "Table 3 - missing homes 1955-2015.csv"))
+
+write_csv(Export3_revised, file.path(OUT_DIR, "Table 3 revised - own demolitions.csv"))
+message("Wrote ", file.path(OUT_DIR, "Table 3 revised - own demolitions.csv"))
