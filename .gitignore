@@ -3,5 +3,5 @@
 .RData
 .Rproj.user/
 
-# Replication output is regenerable; the scripts that make it are what matter
-Summary Replication Output/
+# Regenerable -- the scripts that make it are what matter
+output/

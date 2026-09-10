@@ -51,11 +51,11 @@ options(scipen = 999)
 # No setwd(). The 2022 scripts used it heavily and it is why output from them
 # lands in the data folder rather than where you ran them.
 
-DATA_DIR <- "C:/Users/samue/Dropbox/Processed European Data"
-if (!dir.exists(DATA_DIR)) DATA_DIR <- "/mnt/c/Users/samue/Dropbox/Processed European Data"
-stopifnot("DATA_DIR not found -- set it to wherever Replication Data full.xlsx lives" = dir.exists(DATA_DIR))
-
-OUT_DIR <- file.path(DATA_DIR, "Summary Replication Output")
+# Paths resolve whether you run from the repo root or from code/.
+ROOT     <- if (dir.exists("../data")) ".." else "."
+DATA_DIR <- file.path(ROOT, "data")
+OUT_DIR  <- file.path(ROOT, "output")
+stopifnot("Run this from the repo root or from code/" = dir.exists(DATA_DIR))
 dir.create(OUT_DIR, showWarnings = FALSE)
 
 SAVE_FIGURES <- TRUE
@@ -597,7 +597,7 @@ save_fig(fig12, "Figure 12 - homes per person relative to UK, modern")
 # British Housing, via seven hand-extracted CSVs that no longer exist -- but the
 # processed output survives, with the build rates already derived.
 
-ew <- read_csv(file.path(DATA_DIR, "England and Wales Housing Data from 1856.csv"),
+ew <- read_csv(file.path(DATA_DIR, "England and Wales Housebuilding 1856-2019.csv"),
                show_col_types = FALSE) %>%
   select(-1) %>%
   mutate(Year = as.integer(format(as.Date(Date), "%Y")),
@@ -664,31 +664,21 @@ save_fig(fig1, "Figure 01 - England and Wales housebuilding 1856-2019", w = 9)
 # are the 1960 Q1 CPI and the deflated 1960 Q1 earnings -- which is how the two
 # files were identified.
 
-hp_raw <- read_excel(file.path(DATA_DIR, "UK_house_price_since_1952.xlsx"),
-                     sheet = "UK HP Since 1952", col_names = FALSE, .name_repair = "minimal")
-names(hp_raw) <- paste0("c", seq_len(ncol(hp_raw)))
+# The two parents -- the Nationwide house price workbook and the Bank of England
+# quarterly headline series -- are not in this archive: the BoE file alone is
+# 26 MB of a public dataset, and only two of its columns are used. They were
+# extracted once into the CSV below, which carries exactly what the transform
+# needs. Both parents live in Dropbox for anyone who wants to regenerate it.
 
-house <- hp_raw %>%
-  filter(str_detect(as.character(c1), "^Q[1-4] [0-9]{4}$")) %>%
-  transmute(Quarter = zoo::as.yearqtr(gsub(" ", "/", as.character(c1)), format = "Q%q/%Y"),
-            HousePrice = as.numeric(gsub(",", "", as.character(c3))))
-
-boe <- read_csv(file.path(DATA_DIR, "Quarterly Index.csv"),
-                skip = 7, col_names = FALSE, show_col_types = FALSE) %>%
-  # Column positions confirmed against the 1960 Q1 row: 15 is the spliced CPI
-  # (6.57) and 19 the spliced Average Weekly Earnings (9.25).
-  transmute(Year = suppressWarnings(as.integer(X1)), Q = X2,
-            CPI = suppressWarnings(as.numeric(X15)),
-            Earnings = suppressWarnings(as.numeric(X19))) %>%
-  # The year is written only against Q1 -- merged cells in the original sheet.
-  # The 2022 script had a fill() for exactly this; without it you keep one row
-  # per year instead of four and the join silently collapses to a fraction.
-  fill(Year, .direction = "down") %>%
-  filter(!is.na(Year), !is.na(Q), Q %in% c("Q1","Q2","Q3","Q4")) %>%
+pw_raw <- read_csv(file.path(DATA_DIR, "UK Price and Wage Data 1952-2016.csv"),
+                   show_col_types = FALSE) %>%
   mutate(Quarter = zoo::as.yearqtr(paste0(Year, " ", Q), format = "%Y Q%q"))
 
-pw <- boe %>%
-  inner_join(house, by = "Quarter") %>%
+stopifnot("price and wage file is short" = nrow(pw_raw) > 200,
+          "expected columns missing" =
+            all(c("CPI", "Earnings", "HousePrice") %in% names(pw_raw)))
+
+pw <- pw_raw %>%
   filter(!is.na(CPI), !is.na(Earnings), !is.na(HousePrice)) %>%
   arrange(Quarter) %>%
   # Rebase CPI so 1960 Q1 = 1, deflate, then index each series to 1960 Q1 = 1.

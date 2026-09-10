@@ -15,10 +15,10 @@ unrunnable and is best read as documentation.
 |---|---|
 | `Counterfactual Replication.R` | **Runs.** Reproduces published Table 3 totals exactly |
 | `Summary Replication.R` | **New, 10 Sep 2026.** Runs. Reproduces Table 2 and the report's quoted statistics |
-| `Project R Code/` (14 scripts) | **Cannot run and never will** — 54 of 60 input files are gone |
+| `European-Housing-Working-Code` (13 scripts) | **Cannot run and never will** — 54 of 60 input files are gone |
 | Published tenure split (Table 3) | **Narrowed to one step, not yet closed** — §7 |
 | Historic England & Wales data | **Found 10 Sep 2026** in `Documents/Historical English Statistics` — §9 |
-| `Project R Code/` in version control | **No.** 14 scripts, untracked, one copy on one disk — §10.6 |
+| `Project R Code/` in version control | **No.** 13 scripts, untracked, one copy on one disk — §10.6 |
 
 The two replication scripts at the repo root are the whole live surface. Everything else is
 provenance.
@@ -30,6 +30,7 @@ provenance.
 | What | Path |
 |---|---|
 | This repo | `C:\Users\samue\Documents\GitHub\European-Housing-Archive` |
+| The 2022 working scripts | `C:\Users\samue\Documents\GitHub\European-Housing-Working-Code` — own repo since 10 Sep 2026 |
 | Data | `C:\Users\samue\Dropbox\Processed European Data` |
 | The report PDF | `Dropbox\Processed European Data\The-housebuilding-crisis-February-2023.pdf` |
 | Historic E&W source workbooks | `C:\Users\samue\Documents\Historical English Statistics` — §9 |
@@ -51,6 +52,38 @@ and `read_csv` swallows it, returning a 0-row tibble rather than an error.
 
 ---
 
+## 1a. Repository layout — restructured 10 September 2026
+
+The archive is now **self-contained**: clone it, run either script, nothing else needed.
+
+```
+code/     Counterfactual Replication.R, Summary Replication.R -- both run
+data/     the four files those scripts read, 400 KB total
+output/   figures and tables, created on run, gitignored
+```
+
+**`data/` holds only what the code reads.** Everything else — the UN source scans, Holmans, the
+full Bank of England dataset, the report and methodology PDFs, the 1950s and 1990s intermediates —
+is research material, not replication input, and stays in `Dropbox\Processed European Data`. That
+was a deliberate call: an earlier version of this restructure pulled all 36 MB in, of which 26 MB
+was a single public dataset with two columns in use.
+
+Two extracts were made rather than carrying their parents:
+
+| extract | replaces | why |
+|---|---|---|
+| `UK Price and Wage Data 1952-2016.csv` (12 KB) | `UK_house_price_since_1952.xlsx` + `Quarterly Index.csv` | the BoE parent is 26 MB and publicly re-downloadable; two of its columns are used |
+| `England and Wales Housebuilding 1856-2019.csv` (27 KB) | Holmans + `HistoricEnglandandWales.csv` | the build rates are already derived in it |
+
+The 2022 working scripts moved out to their own repository, `European-Housing-Working-Code`, so
+this package contains only code that runs. There are **thirteen** of them, not fourteen — the
+earlier count included a `.Rhistory`.
+
+**Paths.** Neither script uses `setwd()`. Both resolve `ROOT` as `..` or `.` depending on whether
+they are run from `code/` or the repo root. The original set `setwd()` twice, at lines 1 and 11,
+which is why output from it landed in the data folder rather than beside it.
+
+
 ## 2. The report
 
 66 pages, 12 figures, 7 tables, 8 boxes. The parts that matter for replication:
@@ -68,9 +101,15 @@ repo and was not found on the machine. It is the most likely home of the tenure-
 
 ## 3. What runs
 
-### `Counterfactual Replication.R` (203 lines) — verified 9 Sep 2026
+### `Counterfactual Replication.R` (340 lines) — verified 9 Sep, rewritten 10 Sep 2026
 
-Reads `Combined.csv`, writes `Export3.csv`. Reproduces the saved `Export3.csv` byte for byte, and
+**Reorganised and documented 10 September 2026, arithmetic untouched.** The stage headings now
+follow the annex's Stages 1-7, each explaining what is being controlled for and why; the duplicated
+library block, both `setwd()` calls and every `view()` went; assertions against all 13 published
+totals were added. Verified: output identical to the 2022 script, cell for cell, including the
+tenure-ratio strings.
+
+Reads `data/Combined.csv`, writes `output/Table 3 - missing homes 1955-2015.csv`. Reproduces the saved `Export3.csv` byte for byte, and
 its totals match published Table 3 on all 13 rows: UK 12,230,000; Western European Average
 4,254,000 — the "4.3 million missing homes" headline.
 
@@ -414,7 +453,7 @@ reading those pages as pages. Not yet done.
 `Combined.csv`, `CompleteData1958-1991.csv`, `1950HouseDataIV.csv`, `1950HouseDataV.csv`,
 `1950s Tenure Data.csv` and `Complete West Capital Formation.csv`.
 
-The 14 scripts in `Project R Code/` therefore cannot run and cannot be made to. They also point at
+The 13 scripts in `Project R Code/` therefore cannot run and cannot be made to. They also point at
 eight working directories under `C:/Users/S.Watling/`, a Centre for Cities account that is gone.
 **Read them as documentation of method** — which is exactly how §6 was recovered.
 
