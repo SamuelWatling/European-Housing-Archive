@@ -52,9 +52,7 @@ Sources are the UN *Annual Bulletin of Housing and Building Statistics for Europ
 statistical agencies after 2000, Holmans's *Historical Statistics of British Housing*, the
 Nationwide house price index and the Bank of England's millennium dataset.
 
-Research material that no script reads — the UN source scans, Holmans, the full BoE dataset, the
-report and methodology PDFs — is deliberately **not** here. It lives in
-`Dropbox/Processed European Data`.
+
 
 ## Also
 
