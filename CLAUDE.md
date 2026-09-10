@@ -451,6 +451,37 @@ split this script uses. The published country rows are not yet reconciled.
 6. ~~**`Project R Code/` IS NOT IN GIT.**~~ **Resolved 10 Sep 2026.** The working scripts are
    committed as `c3bebd6` in `European-Housing-Working-Code`, then grouped verbatim into six theme
    files. `c3bebd6` keeps the thirteen originals, so line citations to them stay valid.
+7. **Tenure shares do not sum to one in 1955-87 -- open, for a later fix.** `Public Housing Ratio`
+   (`1`) + `Private Housing Ratio` (`4`) is off 1 by more than 0.005 in 77 country-years, all in
+   years taken from the UN file `1950s Tenure Data.csv` (the national sources used from 1989 are
+   rescaled and sum to one). The counterfactual counts building as (`1` + `4`) x completions, so
+   these years mostly under-count building, and the Swiss and Finnish counterfactuals are
+   probably too low. Traced row by row, 10 Sep 2026:
+   - **Switzerland 1955-78 (0.84-0.91, 24 years):** the file's Total Private leaves out
+     co-operatives (8.5-15.6% of building): public + total private + co-operatives = 100.0 in 22
+     of the 24 years. 1977 is a bad row (percentages sum to 113.5) and gives the maximum, 1.05.
+   - **Finland 1955-79 (as low as 0.37, 25 years):** public covers state and local government only
+     ("other public bodies" is blank), so rows reach 94-99%. Bad rows: co-operatives entered as 0
+     in 1959-60 (0.54-0.56); 1971 allocates only 29.9% (0.37); 1967, 1970 and 1979 are all-zero
+     placeholder rows.
+   - **Norway 1958-87 (0.97-1.05, 15 years):** rows reach 97-99%; 1987 has public 0, private 100 and
+     an absolute number in the co-operative column.
+   - Minor: Austria, Belgium, Denmark, Germany, Ireland, Sweden and the UK, 1-3 years each.
+
+   Three steps in the 2022 code (`2 European panel.R` in `European-Housing-Working-Code`) turn this
+   into the stored shares. Line 484 divides the UN percentages by 100 but never rescales them
+   (compare line 473, which rescales the 1990s data). Line 492 turns every 0 into NA, so
+   placeholder zeros and genuine zeros are both refilled. Lines 711-712 interpolate and fill each
+   share separately, so nothing keeps them summing to one: Finland 1970 is the average of 1969 and
+   the bad 1971 row. Fix options: rebuild the totals from their sub-categories where they disagree
+   (the UN classes co-operatives as private); treat only all-zero rows as missing; interpolate the
+   private share and set public = 1 - private. **Sam plans to revise the Swiss values later.**
+8. **Negative demolition rates for Ireland -- open, for a later fix.** The Stage 4 adjustment
+   `NewDemRate = DemRate + (StockRatio - 1)/100` (`Counterfactual Replication.R` line 209) has no
+   floor. For the Ireland counterfactual it is negative in 18 years (1978-96), adding about 239,000
+   of Ireland's 7,076,000 extra homes; the Netherlands also dips below zero in 1992 (about 1,000
+   homes). `docs/methodology.tex` describes this as the code behaves. **Sam plans to revise the
+   Irish values later.**
 
 ---
 
@@ -494,15 +525,30 @@ The **methodology** document the README promises is the annex, now in `Processed
 
 ## 13. Next steps
 
-Everything in the report is now reproduced except the Table 3 tenure split.
+Everything in the report is now reproduced except the private/public split of Table 3's country
+rows and three decades of Table 6 (item 2). The UK row's split is explained (§9c).
 
-1. **Close the last 0.06pp on the tenure split** (§7). Try the unweighted cumulative building
-   ratio in `Counterfactual Replication.R` in place of the stock-weighted one, and test whether a
-   zero floor on counterfactual public additions produces the published -4,358,000 for Switzerland
-   and Belgium. Success test: the UK row landing on 7,875,000 / 4,358,000.
+1. **Reconcile the published private/public split of Table 3's country rows** (§7, §9c). The UK
+   row is solved: the published 7,875,000 / 4,358,000 is exactly total demolitions split by the
+   cumulative gross private share, the `BritRef` calculation in the 2022 working code. §7's 0.06pp
+   analysis predates this. The country rows still differ from `Counterfactual Replication.R`
+   (e.g. Sweden published 2,054,000 / 82,300 against 1,577,000 / 560,000). Test whether the
+   matching country calculation (`Counterfac2` -> `NewTot` in section 4.2 of
+   `4 European counterfactuals.R`, which wrote `StockAdjustedCounterfac2.csv`, no longer on disk)
+   reproduces them, and whether a zero floor on counterfactual public additions gives the published
+   -4,358,000 for Switzerland and Belgium. Then update §7 and the "known discrepancy" note at the
+   top of `Counterfactual Replication.R`.
 2. **Pin down Table 6's 1940s, 1950s and 1970s** (§9). The 1940s is war-year exclusion; the other
    two are out by 0.02-0.03 for no reason yet found.
-3. **Read the annex's Stages 1-7** (pp 9-16) against `Counterfactual Replication.R` line by line.
-   Two things have already been found this way; there may be more.
-4. Install `ggpattern` if Figure 10 needs to match the published styling.
-5. Consider moving `Project R Code/` to a `docs/` subfolder so it stops looking runnable.
+3. ~~**Read the annex's Stages 1-7** against `Counterfactual Replication.R` line by line.~~
+   **Done 10 Sep 2026.** `docs/methodology.tex` is now a corrected edition that matches the code;
+   its last section lists what the published annex got wrong.
+4. Install `ggpattern` if Figure 10 needs to match the published styling (still not installed).
+5. ~~Consider moving `Project R Code/` to a `docs/` subfolder so it stops looking runnable.~~
+   **Done 10 Sep 2026.** The working code has its own repo, grouped into six theme files, and its
+   README says it does not run.
+6. **Revise the Swiss and Irish values** (Sam, planned). Deal with the tenure shares (§10.7; for
+   Switzerland that means putting co-operatives back into private) and Ireland's negative demolition
+   rates (§10.8) at the same time. Both change published Table 3 figures, so the totals that
+   `Counterfactual Replication.R` asserts against the published table will need a decision, and
+   `docs/methodology.tex` will need updating to match.
